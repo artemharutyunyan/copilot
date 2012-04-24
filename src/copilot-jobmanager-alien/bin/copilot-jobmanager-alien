@@ -1,0 +1,88 @@
+#!/bin/bash
+
+ALIEN_ROOT=${ALIEN_ROOT:=/opt/alien}
+export ALIEN_ROOT
+
+export COPILOT_CONFIG=COPILOT_CONFIG_DIR_REPLACE
+
+exec $ALIEN_ROOT/bin/alien-perl -x -- $0 $*
+
+################################################################
+#!perl -w
+################################################################
+
+
+#!/usr/bin/perl -w
+#
+=pod 
+
+=head1 DESCRIPTION Copilot job manager (aka adapter) for AliEn
+
+This script creates an instance of Copilot::Container::XMPP inside which copilot job manager runs 
+
+=cut
+
+
+use Copilot::Component::JobManager::AliEn;
+use Copilot::Container::XMPP;
+use Copilot::Config;
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use POE;
+
+my $component = 'JobManager::AliEn';
+my $config = new Copilot::Config ('copilot-jobamanager-alien');
+
+my $cmHost = $config->{'JM_ALIEN_CLUSTER_MONITOR_HOST'};
+my $cmPort = $config->{'JM_ALIEN_CLUSTER_MONITOR_PORT'};
+my $chirpWorkDir = $config->{'JM_CHIRP_WORK_DIR'};
+
+$ENV{ALIEN_CM_AS_LDAP_PROXY}="$cmHost:$cmPort";
+
+#define ALIEN_HOME
+$ENV{ALIEN_HOME}="$ENV{HOME}/.alien";
+
+my $jabberServer = $config->{'JM_JABBER_SERVER'};
+my $jabberDomain = $config->{'JM_JABBER_DOMAIN'};
+
+my $jabberID = $config->{'JM_JABBER_ID'};
+my $jabberPassword = $config->{'JM_JABBER_PASSWORD'};
+
+my $storageManagerJID = $config->{'SM_JABBER_ADDRESS'};
+my $keyServerJID = $config->{'KM_JABBER_ADDRESS'};
+
+my $loggerConfig = $config->{'JM_LOGGER_CONFIG_FILE'};
+
+my $alienUser = $config->{'JM_ALIEN_USER_NAME'};
+
+my $publicKeyFile = $config->{'PUBLIC_KEYS_FILE'}; 
+my $componentPublicKey= $config->{'JM_PUBLIC_KEY_FILE'}; 
+my $componentPrivateKey = $config->{'JM_PRIVATE_KEY_FILE'}; 
+
+my $jm = new Copilot::Container::XMPP (
+                                        {
+                                            Component => $component,
+                                            LoggerConfig => $loggerConfig,
+                                            JabberID => $jabberID,
+                                            JabberPassword => $jabberPassword,
+                                            JabberDomain => $jabberDomain,
+                                            JabberServer => $jabberServer,
+                                            ComponentOptions => {
+                                                                ChirpDir => $chirpWorkDir ,
+                                                                AliEnUser => $alienUser,
+                                                                StorageManagerAddress => $storageManagerJID,
+                                                              },
+                                            SecurityModule => 'Provider',
+                                            SecurityOptions => {
+                                                                KMAddress => $keyServerJID,
+                                                                PublicKeysFile => $publicKeyFile,
+                                                                ComponentPublicKey => $componentPublicKey, 
+                                                                ComponentPrivateKey => $componentPrivateKey, 
+                                                               },                                                                        
+                                        } 
+                                  );                           
+
+POE::Kernel->run();

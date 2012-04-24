@@ -1,0 +1,8 @@
+export ALIEN_ROOT=/opt/alien
+export ALIEN_USER=hartem 
+export ALIEN_DOMAIN=cloud.org
+export ALIEN_HOSTNAME=cluster2.cloud.org
+export GLOBUS_LOCATION=/opt/alien/globus
+ALIEN_ORGANISATION=ALICE
+export LD_LIBRARY_PATH=/opt/alien/globus/lib:/opt/alien/lib/:/opt/alien/api/lib:$LD_LIBRARY_PATH
+
