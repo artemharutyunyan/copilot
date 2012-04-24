@@ -1,0 +1,108 @@
+#!/bin/bash
+#
+# copilot-jobmanager-generic start/stop copilot-jobmanager-generic
+#
+# chkconfig: 345 19 90
+# description: copilot-jobmanager-generic starting and stopping script
+# 
+
+
+# Source function library.
+. /etc/init.d/functions
+
+PID_FILE=/var/run/copilot-jobamanager-geric.pid
+
+start() {
+	/usr/bin/copilot-jobmanager-generic >/var/log/copilot-jobamanager-generic.log_err 2>&1 &
+	JM_PID=$!
+	ps -p $JM_PID >/dev/null 2>&1
+
+	if [ $? -ne "0" ]; then
+		failure 
+		exit -1
+	else
+		OLDPID=`cat $PID_FILE 2>&1`
+		if [ $? -eq "0" ]; then
+			echo -n "Stopping Co-Pilot Job Manager (PID $OLDPID): "
+			kill -9 $OLDPID >/dev/null 2>&1			
+            if [ $? -ne "0" ]; then
+                failure
+                echo
+                echo "The Co-Pilot Job Manager was dead."			
+            else
+                success
+                echo        
+            fi
+		fi 		
+
+        echo -n $"Starting CernVM Co-Pilot Job Manager: "
+        success
+		echo $JM_PID > $PID_FILE
+    fi
+	echo  
+}
+
+stop() {
+	JM_PID=`cat $PID_FILE 2>/dev/null`
+	if [ $? -eq "0" ]; then
+    	echo -n "Stopping Co-Pilot Job Manager (PID $JM_PID):"
+	    rm -f $PID_FILE
+    	kill -9 $JM_PID >/dev/null	2>&1
+
+        if [ $? -ne "0" ]; then
+            failure
+            echo
+            echo "The Co-Pilot Job Manager was dead."			
+        else
+            success
+            echo
+        fi      
+    else
+        echo -n "Stopping running Co-Pilot Job Manager: " 
+        failure
+        echo
+        echo "PID file $PID_FILE does not exist."
+	fi		
+}
+
+status() {
+    echo -n "Checking status of Co-Pilot Job Manager: " 
+    JM_PID=`cat $PID_FILE 2>/dev/null`
+
+    if [ $? -eq "0" ]; then
+        ps -p $JM_PID >/dev/null 2>&1
+        if [ $? -eq "0" ]; then 
+            success
+        else 
+            echo -n " Dead."
+            failure
+        fi
+    echo
+    else
+    	failure
+        echo
+        echo "PID file $PID_FILE does not exist."
+    fi
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    *)
+       echo "Usage:  {start|stop|status|restart]"
+        exit 1
+        ;;
+esac
+exit $?
+

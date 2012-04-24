@@ -1,0 +1,9 @@
+--- INTRODUCTION ---
+
+Contains Generic Co-Pilot Jobmanager package
+
+--- INSTALLATION ---
+
+perl Makefile.PL
+make
+make install

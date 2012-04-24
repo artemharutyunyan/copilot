@@ -1,0 +1,105 @@
+#!/usr/bin/perl -w
+#
+=pod
+
+=head1 DESCRIPTION Copilot Generic Job Manager
+
+This script creates an instance of Copilot::Container::XMPP inside which copilot job manager runs
+
+=cut
+
+
+use Copilot::Component::JobManager::Generic;
+use Copilot::Container::XMPP;
+use Copilot::Config;
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use POE;
+
+my $component = 'JobManager::Generic';
+my $config = new Copilot::Config ('copilot-jobmanager-generic');
+
+my $localhost = `hostname -f`;
+chomp $localhost;
+
+my $waitingJobsList = $config->{'JM_WAITING_JOBS_LIST'};
+
+my $doneJobDir = $config->{'JM_DONE_JOB_DIR'};
+
+my $chirpWorkDir = $config->{'JM_CHIRP_WORK_DIR'};
+my $chirpServer  = $config->{'JM_CHIRP_SERVER'} || $localhost;
+my $chirpPort    = $config->{'JM_CHIRP_PORT'}  || 9094;
+
+my $redisServer  = $config->{'JM_REDIS_SERVER'} || $localhost;
+my $redisPort    = $config->{'JM_REDIS_PORT'}   || 6379;
+
+my $jabberServer   = $config->{'JM_JABBER_SERVER'};
+my $jabberDomain   = $config->{'JM_JABBER_DOMAIN'};
+my $jabberResource = $config->{'JM_JABBER_RESOURCE'};
+
+my $jabberID = $config->{'JM_JABBER_ID'};
+my $jabberPassword = $config->{'JM_JABBER_PASSWORD'};
+
+my $storageManagerJID = $config->{'SM_JABBER_ADDRESS'};
+my $keyServerJID = $config->{'KM_JABBER_ADDRESS'};
+my $monitorJID = $config->{'MON_JABBER_ADDRESS'};
+
+my $loggerConfig = $config->{'JM_LOGGER_CONFIG_FILE'};
+
+my $chatServer = $config->{'HB_CHAT_SERVER'} || '';
+my $chatRoom = $config->{'HB_CHAT_ROOM'}     || '';
+
+my $publicKeyFile = $config->{'PUBLIC_KEYS_FILE'};
+my $componentPublicKey= $config->{'JM_PUBLIC_KEY_FILE'};
+my $componentPrivateKey = $config->{'JM_PRIVATE_KEY_FILE'};
+
+my $jmJobRequireFile = $config->{'JM_JOB_REQUIRE_FILE'};
+
+my $storageOnlyOn = $config->{'JM_STORAGE_ONLY_MODE_ON'} || undef;
+
+my $queueOnlyOn = $config->{'JM_QUEUE_ONLY_MODE_ON'} || undef;
+
+my $jm = new Copilot::Container::XMPP (
+                                        {
+                                            Component                   => $component,
+                                            LoggerConfig                => $loggerConfig,
+                                            JabberID                    => $jabberID,
+                                            JabberPassword              => $jabberPassword,
+                                            JabberResource              => $jabberResource,
+                                            JabberDomain                => $jabberDomain,
+                                            JabberServer                => $jabberServer,
+                                            MonitorAddress              => $monitorJID,
+                                            ChatServer                  => $chatServer,
+                                            ChatRoom                    => $chatRoom,
+                                            UniqueMonitoringComponent   => '1',
+                                            ComponentOptions => {
+                                                                    ChirpDir                => $chirpWorkDir,
+                                                                    ChirpServer             => $chirpServer,
+                                                                    ChirpPort               => $chirpPort,
+                                                                    RedisServer             => $redisServer,
+                                                                    RedisPort               => $redisPort,
+                                                                    StorageManagerAddress   => $storageManagerJID,
+                                                                    DoneJobDir              => $doneJobDir,
+                                                                    WaitingJobsList         => $waitingJobsList,
+                                                                    JobRequireFile          => $jmJobRequireFile,
+                                                                    StorageOnlyOn           => $storageOnlyOn,
+                                                                    QueueOnlyOn             => $queueOnlyOn,
+                                                                },
+                                            Plugins => {
+                                                            SystemMonitor => { MonitorAddress => $monitorJID, },
+                                                            Heartbeat     => { ChatRoomAddress => $chatRoom . '@' . $chatServer, },
+                                                       },
+#                                            SecurityModule => 'Provider',
+#                                            SecurityOptions => {
+#                                                                KMAddress => $keyServerJID,
+#                                                                PublicKeysFile => $publicKeyFile,
+#                                                                ComponentPublicKey => $componentPublicKey,
+#                                                                ComponentPrivateKey => $componentPrivateKey,
+#                                                               },
+                                        }
+                                  );
+
+POE::Kernel->run();
