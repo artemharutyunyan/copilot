@@ -1,0 +1,9 @@
+--- INTRODUCTION ---
+
+Contains Co-Pilot Monitor package
+
+--- INSTALLATION ---
+
+perl Makefile.PL
+make
+make install-all

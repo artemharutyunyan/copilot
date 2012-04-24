@@ -1,0 +1,99 @@
+html {
+  background: #00040E;
+  width: 100%;
+}
+
+body {
+  padding: 20px 0;
+}
+
+.group {
+  background: #151B2A;
+  box-shadow: #000 0 2px 5px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+}
+
+.group hr {
+  margin: 0;
+  height: 1px;
+  border: 0;
+  border-top: 1px solid #00040E;
+  background-color: #242935;
+  z-index: 3;
+}
+
+.group .title {
+  display: block;
+  position: absolute;
+  color: #fff;
+  background: #36c;
+  z-index: 2;
+  padding: 2px 4px;
+  text-shadow: #00040E 0 1px 0;
+  font-size: 0.8em;
+  cursor: default;
+
+/*  background: #4c3; */
+/*  text-shadow: #236A1A 0 1px 0; */
+
+  -webkit-transition: background-color 0.3s, margin 0.1s, opacity 0.1s;
+  -moz-transition: background-color 0.3s, margin 0.1s, opacity 0.1s;
+}
+
+.group .title {
+  -webkit-border-bottom-right-radius: 4px;
+  -moz-border-radius-bottomright: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+/*
+.graph:hover {
+  background: #152A1D;
+}
+*/
+
+.group:hover .title {
+  opacity: 0;
+}
+
+.graph:hover .title {
+  background: #4c3;
+  text-shadow: #236A1A 0 1px 0;
+  margin-top: -20px;
+  opacity: 1;
+
+  -webkit-border-top-right-radius: 4px;
+  -moz-border-radius-topright: 4px;
+  border-top-right-radius: 4px;
+  -webkit-border-bottom-right-radius: 0;
+  -moz-border-radius-bottomright: 0;
+  border-bottom-right-radius: 0;
+}
+
+#header {
+  background: #3861AA;
+  color: #fff;
+  padding: 0;
+  width: 48px;
+  position: fixed;
+  right: 10px;
+  top: 0;
+  text-align: center;
+}
+
+#clock {
+  display: block;
+  font-size: 1.1em;
+  font-weight: bold;
+  text-shadow: #000E32 0 1px 0;
+}
+
+.graph {
+  height: 100px;
+}
+
+.graph.pie {
+  height: 151px;
+}

@@ -1,0 +1,63 @@
+#!/usr/bin/perl -w
+#
+=pod
+
+=head1 DESCRIPTION Co-Pilot Monitor
+
+This script creates an instance of Copilot::Component::Monitor.
+
+=cut
+
+use Copilot::Component::Monitor;
+use Copilot::Container::XMPP;
+use Copilot::Config;
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use POE;
+
+my $config = new Copilot::Config('copilot-monitor');
+my $localhost = `hostname -f`;
+chomp $localhost;
+
+my $jabberServer   = $config->{'MON_JABBER_SERVER'};
+my $jabberDomain   = $config->{'MON_JABBER_DOMAIN'};
+my $jabberID       = $config->{'MON_JABBER_ID'};
+my $jabberPassword = $config->{'MON_JABBER_PASSWORD'};
+my $jabberResource = $config->{'MON_JABBER_RESOURCE'};
+
+my $loggerConfig = $config->{'MON_LOGGER_CONFIG_FILE'};
+
+my $publicKeysFile = $config->{'PUBLIC_KEYS_FILE'};
+my $securityEnabled = $config->{'MONITOR_SECURE_MODE'};
+my $keyServerJID = $config->{'KM_JABBER_ADDRESS'};
+
+my $carbonServer = $config->{'CARBON_SERVER'} || $localhost;
+my $carbonPort   = $config->{'CARBON_PORT'}   || '2003';
+
+my $monitor = new Copilot::Container::XMPP ({
+                                              Component         => 'Monitor',
+                                              LoggerConfig      => $loggerConfig,
+
+                                              JabberID          => $jabberID,
+                                              JabberPassword    => $jabberPassword,
+                                              JabberDomain      => $jabberDomain,
+                                              JabberServer      => $jabberServer,
+                                              JabberResource    => $jabberResource,
+                                              JabberResend      => '1',
+
+                                              ComponentOptions  => {
+                                                                      CarbonServer => $carbonServer,
+                                                                      CarbonPort   => $carbonPort,
+                                                                   },
+
+#                                              SecurityModule => 'Provider',
+#                                              SecutityOptions => {
+#                                                                    KMAddress => $keyServerJID,
+#                                                                    TicketGettingCredential => 'jibber',
+#                                                                    PublicKeysFile => $publicKeysFile,
+#                                                                 },
+                                            });
+POE::Kernel->run();

@@ -1,0 +1,13 @@
+To install the dashboard just copy this directory to:
+  /opt/graphite/webapp/content
+
+And now you can access it on:
+  localhost:8000/content/copilot-dashboard/index.html
+ 
+Or, if you add this line to /opt/graphite/webapp/graphite/urls.py:37:
+  ('^copilot\-dashboard/(?P<path>.*)/?', 'django.views.static.serve', {'document_root': settings.CONTENT_DIR + 'copilot-dashboard/'}),
+  
+You will be able to use it as:
+  localhost:8000/copilot-dashboard/index.html
+
+Yes, index.html is necessary.

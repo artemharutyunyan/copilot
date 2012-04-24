@@ -1,0 +1,118 @@
+#!/usr/bin/perl -w
+
+=pod
+
+=head1 DESCRIPTION Copilot Heartbeat Utility
+
+This script creates and instance of Copilot::Container::XMPP inside which a Copilot::Component::Heartbeat is instantiated.
+
+=cut
+
+use Copilot::Component::Heartbeat;
+use Copilot::Container::XMPP;
+use Copilot::Config;
+
+use strict;
+use warnings;
+
+use POE;
+use Data::Dumper;
+use Getopt::Long;
+
+my $component = 'Heartbeat';
+my $config    = new Copilot::Config('copilot-heartbeat');
+
+my $jabberServer      = $config->{'HB_JABBER_SERVER'};
+my $jabberDomain      = $config->{'HB_JABBER_DOMAIN'};
+my $jabberId          = $config->{'HB_JABBER_ID'};
+my $jabberPasswd      = $config->{'HB_JABBER_PASSWORD'};
+my $jabberResource    = $config->{'HB_JABBER_RESOURCE'} || 'default';
+my $jabberAddress     = $config->{'HB_JABBER_ADDRESS'};
+
+my $chatServer        = $config->{'HB_CHAT_SERVER'};
+my $chatRoom          = $config->{'HB_CHAT_ROOM'};
+
+my $loggerConfig      = $config->{'HB_LOGGER_CONFIG_FILE'};
+
+my $publicKeyFile       = $config->{'PUBLIC_KEYS_FILE'};
+my $componentPublicKey  = $config->{'HB_PUBLIC_KEY_FILE'};
+my $componentPrivateKey = $config->{'HB_PRIVATE_KEY_FILE'};
+
+GetOptions ('jabber-server=s'   => \$jabberServer,
+            'jabber-domain=s'   => \$jabberDomain,
+            'jabber-id=s'       => \$jabberId,
+            'jabber-password=s' => \$jabberPasswd,
+            'chat-server=s'     => \$chatServer,
+            'chat-room=s'       => \$chatRoom,
+           ) or usage();
+
+my $command = shift @ARGV;
+my $JIDs = join (' ', @ARGV);
+
+die "Command wasn't provided. See '$0 --help' for supported commands.\n" if $command eq '';
+
+my $heartbeat = new Copilot::Container::XMPP({
+                                                Component       => $component,
+                                                LoggerConfig    => $loggerConfig,
+
+                                                JabberServer    => $jabberServer,
+                                                JabberDomain    => $jabberDomain,
+                                                JabberID        => $jabberId,
+                                                JabberPassword  => $jabberPasswd,
+                                                JabberResource  => $jabberResource,
+                                                JabberResend    => '1',
+
+                                                ChatServer      => $chatServer,
+                                                ChatRoom        => $chatRoom,
+
+                                                ComponentOptions => {
+                                                                      ChatRoomAddress => $chatRoom . '@' . $chatServer,
+                                                                      Command         => $command,
+                                                                      Addresses       => $JIDs,
+                                                                    },
+#                                                SecurityModule => 'Provider',
+#                                                SecutityOptions => {
+#                                                                     KMAddress => $keyServerJID,
+#                                                                     TicketGettingCredential => 'jibber',
+#                                                                     PublicKeysFile => $publicKeysFile,
+#                                                                   },
+                                            });
+
+POE::Kernel->run();
+
+sub usage
+{
+  print "Usage: $0 [options] command JID [JIDs...]
+
+Where options are:
+    --jabber-server       Name of the XMPP server
+    --jabber-hostname     Hostname of the XMPP server
+    --jabber-id           Account username
+    --jabber-password     Password for the account
+    --chat-server         Hostname of XMPP MUC server
+    --chat-room           Name of the chat room occupied by components
+    --help                Displays this message
+
+Default values are read from /etc/copilot/copilot-heartbeat.config file.
+
+Known commands:
+    list                Lists all online components
+    systemLoad          Reports system load averages
+    diskUsage           Returns total used and free disk space (in MB)
+    memoryUsage         Returns used and free memory (RAM and swap; in MB)
+    runningProcesses    Displays a list of running processes
+
+JID can be a full JID or just a chat room nick. Example:
+  chatroom\@conference.jabber.host/chatroomnick     JID representing a chat room occupant
+  chatroom\@conference.jabber.host                  JID of the Chat room (command will be sent to every occupant)
+  agent-123-xxx-yyy\@jabber.host/default            A real JID of a component
+
+If not a single JID is provided, the command will be sent to the chat room, ie. to every connected component.
+
+Example usage:
+  $0 list chatroom\@conference.jabber.org
+
+  $0 --chat-room flight-attendants systemStatus flight-attendants\@conference.jabber.org/Kate
+";
+  exit;
+}

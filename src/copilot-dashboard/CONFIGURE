@@ -1,0 +1,51 @@
+To configure the dashboard, you'll have to play with both index.html (remember to create a backup!) and js/dashboard2.config.js
+
+== dashboard2.config.js ==
+
+This is actually a JSON file, with two root properties "graphs" and "layout".
+
+An object describing in the "graphs" array looks something like:
+
+{
+  "title": "Job completition",                                                        -- Title of the graph
+  "id": "job-completition-combined",                                                  -- ID of the graph, a matching DIV in html file is necessary
+  "metrics": ["copilot.aggregate.jobmanager.generic.rt.job.{succeeded,failed}"],      -- Metrics shown in the graph. Full Graphite syntax is supported
+                                                                                      -- ie. you can use asterisks, functions, etc.
+  "labels": {                                                                         -- An object with human-friendly names of metrics
+    "copilot.aggregate.jobmanager.generic.rt.job.succeeded": "succeeded",
+    "copilot.aggregate.jobmanager.generic.rt.job.failed": "failed"
+  },
+  "type": "scatter",                                                                  -- Type of the graph, possible values:
+                                                                                      -- line, spline, area, areaspline, pie, scatter
+  "range": "-2hours",                                                                 -- Length of the initial data
+  "refreshRate": 10,                                                                  -- How often the data is logged (ignored at the moment)
+  "min": 0                                                                            -- Minimal Y value. Use it to fix the case when rendered chart takes upper half
+                                                                                      -- of the canvas.
+}
+
+There's more!
+
+{
+  "title": "Network traffic",
+  "id": "net-io-combined", 
+  "metrics": ["copilot.jobmanager.generic.*.system.net.*.eth0"],                      -- See, asterisks are being used here
+  "labelPattern": "eth0 {1} (JM {0})",                                                -- If asterisks can match a lot of values use "labelPattern",
+                                                                                      -- when rendering graph {0} and {1} will be replaced with string matched
+                                                                                      -- by first (eg. 'default') and second (eg. 'in') asterisk respectively.
+  "range": "-2hours",
+  "type": "area",
+  "stacking": "normal",                                                               -- Can result in less visual clutter, possible values: normal, percent
+  "refreshRate": 60
+}
+
+To configure the layout checkout the "layout" property:
+
+"layout": [
+  [[12],   ["queues-total"]],                                                         -- Each line represents a group. The first element is an array with column widths
+                                                                                      -- Every subsequent array represents graphs in a group.
+  [[3, 9], ["mem-usage-overview", "disk-usage-overview"],                             -- Make sure column widths always add up to 12. 
+           ["system-load-combined", "disk-usage-combined"]],
+  
+  [[3, 9], ["jobs-overview", "jobs-last-week-overview"],                              -- Of course, there can be more than two groups and more than two graphs per group.
+           ["jobs-status-combined", "errors-combined"]]
+]
