@@ -1,0 +1,9 @@
+--- INTRODUCTION ---
+
+Contains Copilot perl package
+
+--- INSTALLATION ---
+
+perl Makefile.PL
+make
+make install
