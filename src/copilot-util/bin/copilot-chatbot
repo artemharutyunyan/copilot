@@ -1,0 +1,43 @@
+#!/usr/bin/perl -w
+#
+=pod 
+
+=head1 DESCRIPTION Copilot tester
+
+This script creates an instance of Copilot::Container::XMPP inside which test service runs 
+
+=cut
+
+use Copilot::Component::ChatBot;
+use Copilot::Container::XMPP;
+
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use POE;
+
+my $jabberServer = 'cernvm-messaging.cern.ch';
+my $jabberDomain = $jabberServer;
+
+my $jabberID = 'test';
+my $jabberPassword = 'password';
+
+my $loggerConfig = '/etc/copilot/loggerConf/chatbot-logger.conf';
+
+my $agent = new Copilot::Container::XMPP (
+                                    {
+                                      Component => 'ChatBot',
+                                      LoggerConfig => $loggerConfig,
+                                      JabberID => $jabberID,
+                                      JabberPassword => $jabberPassword,
+                                      JabberDomain => $jabberDomain,
+                                      JabberServer => $jabberServer,
+                                      ServiceOptions => {
+                                                     },
+
+                                    } 
+                                  );
+
+POE::Kernel->run();

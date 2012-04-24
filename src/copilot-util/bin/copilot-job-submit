@@ -1,0 +1,152 @@
+#!/usr/bin/perl 
+
+use strict;
+
+use Getopt::Long;
+use Copilot::GUID;
+use File::Copy;
+use File::Basename;
+
+
+use Redis;
+
+use Data::Dumper;
+
+#my $CHIRP_WORK_DIR="/opt/Chirp";
+#my $CHIRP_ADDRESS = 'cvmsrv02.cern.ch';
+#my $REDIS_ADDRESS = `hostname -f`;
+my $REDIS_ADDRESS = 'localhost';
+my $REDIS_PORT = "6379";
+my $WAITING_JOBS_LIST = ($ENV{'COPILOT_WAITING_JOBS_LIST'} || 'waiting_jobs');
+
+#chomp $CHIRP_ADDRESS;
+chomp $REDIS_ADDRESS;
+
+my $command;
+my $arguments;
+my $inputDir;
+my $inputFiles;
+my $chirpAddress;
+my $chirpDir;
+my $environment;
+my $packages;
+my $number;
+
+GetOptions ('command=s'     => \$command,
+            'arguments=s'   => \$arguments,
+            'input-files=s' => \$inputFiles,
+            'chirp-addr=s'  => \$chirpAddress,
+            'chirp-dir=s'   => \$chirpDir,
+            'environment=s' => \$environment,            
+            'packages=s'    => \$packages,
+            'number=i'      => \$number,
+           ) or usage();
+
+$command or usage();
+
+$inputFiles .= " $command" if (-e $command);
+
+my $id = getJobId();
+$inputDir = createInputDir ($inputFiles, $id);
+
+$inputFiles =~ s/\s+/\#\#\#/g;
+
+
+# Queue the job
+my $job = $chirpAddress  ."::::". 
+          $inputDir      ."::::".
+          $inputFiles    ."::::".  
+          $command       ."::::".          
+          $arguments     ."::::".
+          $environment   ."::::".
+          $packages      ."::::";  
+
+#print "\n$job\n";
+
+print "\n===== Registering the job(s) in the database =====\n\n";
+
+my $r = Redis->new( server => "$REDIS_ADDRESS:$REDIS_PORT" );
+$r->ping() or die "Could not connect to Redis at $REDIS_ADDRESS\n";
+
+$number or ($number = 1);
+
+for (1 .. $number)
+{
+    $r->set ("job:$id:description" => $job) or die "Could not register job in Redis\n";
+    $r->lpush ($WAITING_JOBS_LIST => $id) or "Could not set job as waiting in in Redis\n";
+    print "The job has been registered in the database (ID: $id)\n"; 
+    $id = getJobId();
+}
+#print "set job:$id:description $job\n";
+#print "lpush waiting_jobs $id";
+exit 0;
+
+sub getJobId
+{
+    my $GUID = new Copilot::GUID;
+    return $GUID->CreateGuid();
+}
+
+sub createInputDir 
+{
+    my $inputFiles = shift;
+    my $id = shift;
+
+    $inputDir = $id;
+    my $inputDirPath = "$chirpDir/".$inputDir;
+
+    # Create input directory
+    print "===== Preparing job input ===== \n";
+    print "Creating input directory $inputDirPath\n";
+    mkdir $inputDirPath;
+    createChirpACL ($inputDirPath, "address:* rl\nhostname:* rl");
+
+    foreach my $file (split (/\s+/, $inputFiles))
+    {
+        next unless -e $file;
+        my $parentDir = dirname ($file);
+        my $dst = $inputDirPath;
+
+        if ($parentDir ne '' and $parentDir ne '.')
+        {
+            `mkdir -p $inputDirPath/$parentDir`;
+            $dst = $inputDirPath."/".$parentDir;    
+        }
+
+        print "Copying $file to $dst\n";
+        `cp $file $dst\n`;
+    }
+
+    print "Done.\n";
+    return $inputDir;
+}
+
+sub createChirpACL
+{
+    my $dir = shift;
+    my $options = shift;
+    
+    open FH, "> $dir/.__acl";
+    print FH "$options\n";
+    close FH
+
+}
+
+sub usage
+{
+    print "Usage: $0 options
+where mandatory options are:
+        --command       A command which must be executed
+        --input-files   List of input files
+        --number        Number of instances to execute
+        --chirp-addr    Address of the Chirp server (eg. cernvmesg02.cern.ch)
+        --chrip-dir     Directory exposed by Chirp. (eg. /opt/Chirp)\n".
+#       --environment   List of environment variables to set before executing the job
+#       --packages      List of packages which need to be 'enabled' 
+
+"Other options:
+        --help          Display this message
+";    
+exit;
+
+}

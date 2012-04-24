@@ -1,0 +1,39 @@
+#
+# The scripts generates RSA keypair.
+
+#!/usr/bin/perl -w
+#
+use Crypt::OpenSSL::RSA;
+use MIME::Base64;
+
+use Time::Local;
+
+use strict;
+
+my $keyLength = (shift || 1024);
+
+
+my $rsa = Crypt::OpenSSL::RSA->generate_key($keyLength);
+
+print "Private key is:\n", $rsa->get_private_key_string();
+print "Public key is:\n", $rsa->get_public_key_string();
+#print "Public key in X509 is:\n", $rsa->get_public_key_x509_string();
+
+#my $plainText = "Artem";
+
+#my $signature = $rsa->sign ($plainText);
+
+#print "Signature: \n", encode_base64($signature), "\n";
+
+#print "Verified correctly\n" if ($rsa->verify ($plainText, $signature) );
+#print "Verification failed \n" unless ($rsa->verify ($plainText, $signature) );
+
+
+#my ($sec,$min,$hour,$mday,$mon,$year) = gmtime();
+#my $gm = timegm($sec,$min,$hour,$mday,$mon,$year );
+
+#($sec,$min,$hour,$mday,$mon,$year) = localtime();
+#my $local = timegm ($sec, $min, $hour, $mday, $mon, $year);
+
+#print "GM: $gm\nLocal: $local\nDelta: ", $local - $gm, "\n";
+

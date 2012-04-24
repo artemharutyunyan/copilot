@@ -1,0 +1,14 @@
+#!/usr/bin/perl -w
+#
+
+use strict;
+use warnings;
+
+use Copilot::GUID; 
+my $guid = new Copilot::GUID; 
+
+for (1..10)
+{
+    my $newguid = $guid->CreateGuid();
+    print "$newguid\n";
+}
