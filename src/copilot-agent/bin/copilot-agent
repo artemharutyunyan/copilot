@@ -1,0 +1,91 @@
+#!/usr/bin/perl -w
+
+=pod
+
+=head1 DESCRIPTION Copilot agent
+
+This script creates an instance of Copilot::Container::XMPP inside which copilot agent runs
+
+=cut
+
+use Copilot::Component::Agent;
+use Copilot::Container::XMPP;
+
+use Copilot::GUID;
+use Copilot::Config;
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use POE;
+
+my $conf = new Copilot::Config ('copilot-agent');
+
+my $jabberServer = $conf->{'AGENT_JABBER_SERVER'};
+my $jabberDomain = $conf->{'AGENT_JABBER_DOMAIN'};
+
+#my $id;
+#my $idPath = "/tmp/copilot-agent-uuid";
+
+#if (-e $idPath)
+#{
+#    $id = `cat $idPath`;
+#    chomp $id;
+#}
+
+#$id or ($id = Copilot::GUID->new()->CreateGuid());
+
+#`echo $id > $idPath`;
+
+my $jabberID = $conf->{'AGENT_JABBER_ID'};# . "-" . $id . "-g"; 
+my $jabberPassword = $conf->{'AGENT_JABBER_PASSWORD'};
+
+my $loggerConfig = $conf->{'AGENT_LOGGER_CONFIG_FILE'};
+
+my $JMAddress = $conf->{'JM_JABBER_ADDRESS'};
+my $keyServerJID = $conf->{'KM_JABBER_ADDRESS'};
+
+my $chatServer = $conf->{'HB_CHAT_SERVER'} || '';
+my $chatRoom = $conf->{'HB_CHAT_ROOM'}     || '';
+
+my $publicKeysFile = $conf->{'PUBLIC_KEYS_FILE'};
+
+my $agentWorkDir = $conf->{'AGENT_WORK_DIR'};
+
+my $securityEnabled = $conf->{'AGENT_SECURE_MODE'};
+
+my %options = (
+                Component     => 'Agent',
+                LoggerConfig  => $loggerConfig,
+                JabberID      => $jabberID,
+		            #Debug => '1',
+                JabberPassword  => $jabberPassword,
+                JabberDomain    => $jabberDomain,
+                JabberServer    => $jabberServer,
+                JabberResend    => '1',
+                ChatServer      => $chatServer,
+                ChatRoom        => $chatRoom,
+                ComponentOptions => {
+                                      JMAddress   => $JMAddress,
+                                      WorkDir     => $agentWorkDir,
+                                    },
+                Plugins => {
+                              Heartbeat => { ChatRoomAddress => $chatRoom . '@' . $chatServer, },
+                           },
+              );
+
+if (defined($securityEnabled) and $securityEnabled eq '1')
+{
+    # Append security options if the flag is set
+    %options = ( %options, SecurityModule => 'Consumer',
+                           SecurityOptions => {
+                                                KMAddress => $keyServerJID,
+                                                TicketGettingCredential => 'blah',
+                                                PublicKeysFile => $publicKeysFile,
+                                              }
+               );
+}
+
+my $agent = new Copilot::Container::XMPP ( \%options );
+POE::Kernel->run();

@@ -1,0 +1,108 @@
+#!/bin/bash
+#
+# copilot-agent start/stop copilot-agent
+#
+# chkconfig: 345 18 89
+# description: copilot-agent starting and stopping script
+# 
+
+
+# Source function library.
+. /etc/init.d/functions
+
+PID_FILE=/var/run/copilot-agent.pid
+
+start() {
+	/usr/bin/copilot-agent >/var/log/copilot-agent.log_err 2>&1 &
+	AGENT_PID=$!
+	ps -p $AGENT_PID >/dev/null 2>&1
+
+	if [ $? -ne "0" ]; then
+		failure 
+		exit -1
+	else
+		OLDPID=`cat $PID_FILE 2>&1`
+		if [ $? -eq "0" ]; then
+			echo -n "Stopping Co-Pilot Agent (PID $OLDPID): "
+			kill -9 $OLDPID >/dev/null 2>&1			
+            if [ $? -ne "0" ]; then
+                failure
+                echo
+                echo "The Co-Pilot Agent was dead."			
+            else
+                success
+                echo        
+            fi
+		fi 		
+
+        echo -n $"Starting CernVM Co-Pilot Agent: "
+        success
+		echo $AGENT_PID > $PID_FILE
+    fi
+	echo  
+}
+
+stop() {
+	AGENT_PID=`cat $PID_FILE 2>/dev/null`
+	if [ $? -eq "0" ]; then
+    	echo -n "Stopping Co-Pilot Agent (PID $AGENT_PID):"
+	    rm -f $PID_FILE
+    	kill -9 $AGENT_PID >/dev/null	2>&1
+
+        if [ $? -ne "0" ]; then
+            failure
+            echo
+            echo "The Co-Pilot Agent was dead."			
+        else
+            success
+            echo
+        fi      
+    else
+        echo -n "Stopping running Co-Pilot Agent: " 
+        failure
+        echo
+        echo "PID file $PID_FILE does not exist."
+	fi		
+}
+
+status() {
+	echo -n "Checking status of Co-Pilot Agent: " 
+    AGENT_PID=`cat $PID_FILE 2>/dev/null`
+
+    if [ $? -eq "0" ]; then
+        ps -p $AGENT_PID >/dev/null 2>&1
+        if [ $? -eq "0" ]; then 
+            success
+        else 
+            echo -n " Dead."
+            failure
+        fi
+    echo
+    else
+    	failure
+        echo
+        echo "PID file $PID_FILE does not exist."
+    fi
+}
+
+export LANG=C
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    *)
+       echo "Usage:  {start|stop|status|restart]"
+        exit 1
+        ;;
+esac
+exit $?
