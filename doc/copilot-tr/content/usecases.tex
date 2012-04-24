@@ -1,0 +1,15 @@
+\chapter{Use cases}
+\label{sct:usecases}
+
+
+Co-Pilot Managers can either be used to act as a proxy between Co-Pilot Agent and the grid infrastructures, or can be used on their own. Grid infrastructures of experiments differ in their architecture, the Co-Pilot components, however, are flexible enough to accommodate those differences. 
+
+\section{Interfacing Co-Pilot with the ALICE grid}
+
+The execution of the ALICE experiment grid jobs is done in the following way. The Co-Pilot Agent communicates with the AliEn Job Manager grid service \cite{alien}, which in turn contacts the central job queue of the AliEn Grid, and requests a job to execute. When it gets a job, it downloads the job input files from the AliEn File Catalogue and makes the files available to download for the Co-Pilot Agent. The Agent downloads the input files and runs the job execution commands. After the commands have been executed, the Agent contacts the Co-Pilot AliEn Storage Manager component and uploads the results to the machine where the Storage Manager runs. The Storage Manager then contacts the AliEn central services, uploads the results of the execution to the AliEn Storage Element specified in the job description, registers the files in the File Catalogue and marks the final status of the job in the AliEn central database.
+
+\section{Interfacing Co-Pilot with the ATLAS grid}
+In case of the ATLAS experiment the Co-Pilot agent contacts the Co-Pilot Generic Job and Storage manager, which instructs it to execute a specially configured PanDA pilot \cite{panda}. After the execution, the PanDA pilot gets a job from the central queue and executes it. Once the job execution is over the Co-Pilot Agent uploads the results to the Co-Pilot PanDA Storage Manager, which uploads the output to the grid storage, registers the files in the File Catalogue and finalizes the job status. 
+
+\section{Standalone use of Co-Pilot}
+In case of the CERN Theoretical Physics Group Monte-Carlo simulation application, the Co-Pilot framework is used as a distributed computing platform. The jobs are submitted to the Co-Pilot Generic Job and Storage Manager queue by the operator, and are picked up and executed by the Co-Pilot Agent. After the execution is completed the Agent contacts the Generic Job and Storage Manager again and uploads the results.

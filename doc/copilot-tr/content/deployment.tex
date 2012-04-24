@@ -1,0 +1,395 @@
+\chapter{Deployment}
+\section{Prerequisites}
+\subsection{XMPP server}
+\copilot components use XMPP to communicate. We recommend using \indexed{ejabberd} \cite{ejabberd}. Ejabberd sources and documentation can be obtained from
+http://www.ejabberd.im/.
+
+\subsection{Chirp server}
+Co-Pilot components exchange files using \indexed{Chirp}\cite{chirp}. Chirp sources and documentation can be obtained from http://nd.edu/~ccl/software/chirp/. Chirp server should be running on both Job (or Storage) Manager host.
+
+\lstset{caption=Starting Chirp server}
+\begin{lstlisting}
+$ mkdir -p JM_CHIRP_WORK_DIR
+$ chirp_server -i non_root_user -u - -d all -r JM_CHIRP_WORK_DIR
+\end{lstlisting}
+
+Where \emph{JM\_CHIRP\_WORK\_DIR} should coincide with the directory defined as \emph{JM\_CHIRP\_WORK\_DIR} in Manager's configuration file (see ~\ref{sct:jmconfig}).
+
+\subsection{Redis server}
+Co-Pilot Generic Job Manager uses \indexed{Redis}\cite{redis} for storing the job queue. Redis sources and documentation can be obtained from http://redis.io/.
+
+\subsection{Perl modules}
+\copilot is written in Perl programming language and depends on a list of 3rd party Perl modules. On CernVM, the installation of these modules will be triggered automatically during the installation of \copilot. To install all the dependencies on CernVM manually one can trigger the installation of perl-Component-Copilot package (all \copilot components depend on it):
+
+\lstset{caption=Installing \copilot dependencies on CernVM}
+\begin{lstlisting}
+$ sudo conary update perl-Copilot
+\end{lstlisting}
+
+Running \copilot Generic Job Manager requires the manual installation of Redis Perl module:
+
+\lstset{caption=Installing Redis Perl module}
+\begin{lstlisting}
+$ wget http://search.cpan.org/CPAN/authors/id/M/ME/MELO/Redis-1.904.tar.gz
+$ tar xvz Redis-1.904.tar.gz
+$ cd Redis-1.904.tar.gz
+$ perl Makefile.PL
+$ make
+$ sudo make install
+\end{lstlisting}
+
+\subsection{Graphite}
+\subsubsection{Installing Graphite}
+Graphite is used for system monitoring. Graphite sources and documentation can be obtained from http://graphite.wikidot.com/.
+
+Graphite depends on a few Python libraries:
+\begin{itemize}
+  \item PySQLite2 (comes with Python 2.5 and later)
+  \item ctypes (comes with Python 2.5 and later)
+  \item Twisted 10.2.0 or later
+  \item Gevent
+  \item Gunicorn
+  \item Django
+  \item PyCairo (available in system's package manager)
+\end{itemize}
+
+A script is provided in \texttt{copilot-monitor/utils/install-graphite.sh} which downloads and installs all Graphite's prerequisites.
+A list of URLs from which the packages can be manually obtained is provided in the file as well.
+
+Before using Graphite's web interface, an administrator account has to be created:
+\lstset{caption=Creating admin users}
+\begin{lstlisting}
+$ cd /opt/graphite/webapp/graphite
+$ sudo python manage.py syncdb
+\end{lstlisting}
+
+\subsubsection{Configuration}
+Recommended configuration files for Graphite and Whisper are provided in \texttt{copilot-monitor/util/config}. Note that you may have to adjust the names of hard disks and network interfaces mentioned in configuration files according to your system.
+It is also recommended to change the ownership of \texttt{/opt/graphite} directory to a non-root user.
+
+\subsubsection{Troubleshooting}
+In some cases it might happen that not all of the Graphite's files were copied over to the installation directory.
+To verify your Graphite installation make sure that both \texttt{carbon} and \texttt{twisted} directories exist in \texttt{/opt/graphite/lib}.
+Non-functioning aggregation service (\texttt{carbon-aggregator.py}) can be one of the indicators of the broken installation as well.
+
+To fix the issue, a manual re-installation of Graphite will be required:
+\lstset{caption=Manual installation of Graphite}
+\begin{lstlisting}
+$ wget http://cernvm-copilot-monitor.googlecode.com/files/graphite-280711.tar.gz
+$ tar xf graphite-280711.tar.gz
+$ cd graphite
+$ sudo python setup.py install
+$ cd ../whisper
+$ sudo python setup.py install
+$ cd ../carbon
+$ sudo python setup.py install
+\end{lstlisting}
+
+After re-installing the Graphite make sure that the user under which Graphite will be running has
+both read and write access to following directories:
+\lstset{caption=Adjusting directory permissions}
+\begin{lstlisting}
+$ chown -R manager:manager /opt/graphite
+$ chown -R manager:manager /usr/lib64/python2.4/site-packages/Twisted*
+\end{lstlisting}
+
+And as a final step remove generated Python bytecode files if Twisted is still reporting an error.
+\lstset{caption=Removing Python bytecode files}
+\begin{lstlisting}
+$ rm /opt/graphite/lib/carbon/aggregator/*.pyc
+\end{lstlisting}
+
+\section{Deployment of \copilot Generic Job and Storage Manager}
+\subsection{Installing the Job Manager}
+To obtain Job Manager sources and install it do
+
+\lstset{caption=\copilot Generic Job Manager installation}
+\begin{lstlisting}
+$ svn co https://cernvm.cern.ch/project/svn/copilot/trunk copilot
+$ svn co \
+https://cernvm.cern.ch/project/svn/copilot-jobmanager-generic/trunk \
+copilot-jobmanager-generic
+$ cd copilot
+$ perl Makefile.PL
+$ make
+$ sudo make install
+$ cd ../copilot-jobmanager-generic
+$ perl Makefile.PL
+$ make
+$ sudo make install-all
+\end{lstlisting}
+
+\subsection{Configuring the Job Manager}
+\label{sct:jmconfig}
+
+The default location of Job Manager configuration is in \texttt{/etc/copilot/copilot-jobmanager-generic.conf}. Config file has a simple format (VARIABLE\_NAME WHITESPACE VARIABLE\_VALUE).
+The value of the following variables must be set before the Job Manager can be started:
+
+\begin{itemize}
+  \item \emph{JM\_JABBER\_SERVER} - address of your Jabber/XMPP server (e.g. xmpp.cern.ch)
+  \item \emph{JM\_JABBER\_DOMAIN} - domain which your Jabber/XMPP server is configured to serve (e.g. xmpp.cern.ch)
+  \item \emph{JM\_JABBER\_ID} - Jabber ID of the Job Manager (ID should be registered on your jabber server)
+  \item \emph{JM\_JABBER\_PASSWORD} - password for authenticating as JM\_JABBER\_ID on JM\_JABBER\_SERVER
+  \item \emph{JM\_JABBER\_RESOURCE} - Jabber resource id (e.g. firstcopilotjm)
+  \item \emph{JM\_LOGGER\_CONFIG\_FILE} - log file format configuration (e.g. \texttt{/etc/copilot/loggerConf/jobmanager-generic-logger.conf})
+  \item \emph{JM\_CHIRP\_SERVER} - address of the server on which Chirp is running
+  \item \emph{JM\_CHIRP\_WORK\_DIR} - directory which is 'exported' by the Chirp server
+  \item \emph{JM\_DONE\_JOB\_DIR} - directory where the results of the done jobs are saved
+  \item \emph{JM\_REDIS\_SERVER} - machine on which Redis DB is running (e.g. localhost)
+  \item \emph{JM\_WAITING\_JOBS\_LIST} - Name of the list in the Redis DB containing waiting jobs' IDs (defaults to 'waiting\_jobs')
+  \item \emph{JM\_JOB\_REQUIRE\_FILE} - Name of the file which is required to be present on the Agent machine which receives a job from this Job Manager (optional). For details see \ref{sct:havegetjob}.
+  \item \emph{JM\_QUEUE\_ONLY\_MODE\_ON} - Set to '1' if you want the Job Manager to only act as a job queue (i.e. ignore messages related to storing job results) 
+  \item \emph{JM\_STORAGE\_ONLY\_MODE\_ON} - Set to '1' if you want the Job Manager to only act as a storage service (i.e. ignore messages related to requesting new jobs) 
+  \item \emph{MON\_JABBER\_ADDRESS} - Jabber address of the Monitor component (e.g mon@xmpp.cern.ch; optional)
+  \item \emph{HB\_CHAT\_SERVER} - domain name of the XMPP MUC server (e.g. conference.xmpp.cern.ch; optional)
+  \item \emph{HB\_CHAT\_ROOM} - chat room used for Heartbeat service (e.g. pilots-lounge; optional)
+ \end{itemize}
+
+You might also want to take a look at the log format definition file (specified by JM\_LOGGER\_CONFIG\_FILE).
+
+\subsection{Starting the Job Manager}
+
+Job manager can be started with \texttt{copilot-jobmanager-generic}. The output of the command should look like this:
+
+\lstset{caption=Starting \copilot Generic Job Manager}
+\begin{lstlisting}
+$ copilot-jobmanager-generic
+[Fri Mar 25 16:18:57 2011] [info] The component does not need to be waken up.
+[Fri Mar 25 16:18:57 2011] [info] The security module does not need to be waken up.
+
+\end{lstlisting}
+
+\section{Deployment of Co-Pilot Agent}
+
+\subsection{Installing the Agent}
+To obtain Agent sources and install it do:
+
+\lstset{caption=\copilot Agent installation}
+\begin{lstlisting}
+$ svn co https://cernvm.cern.ch/project/svn/copilot/trunk copilot
+$ svn co \
+https://cernvm.cern.ch/project/svn/copilot-agent/trunk \
+copilot-agent
+$ cd copilot-agent
+$ perl Makefile.PL
+$ make
+$ sudo make install-all
+\end{lstlisting}
+
+\subsection{Configuring the Agent}
+Agent configuration file is located in \texttt{/etc/copilot/copilot-agent.conf}. Configuration file has a simple format (VARIABLE\_NAME WHITESPACE VARIABLE\_VALUE).
+The value of the following variables must be set before the Agent can be started:
+
+\begin{itemize}
+  \item \emph{JM\_JABBER\_ADDRESS} - Jabber ID of the Job Manager (jobmanager@xmpp.cern.ch)
+  \item \emph{AGENT\_JABBER\_SERVER} - address of your Jabber/XMPP server (e.g. xmpp.cern.ch)
+  \item \emph{AGENT\_JABBER\_DOMAIN} -  domain which your Jabber/XMPP server is configured to serve (e.g. xmpp.cern.ch)
+  \item \emph{AGENT\_JABBER\_ID} - Jabber ID of the Agent (ID should be registered on your jabber server)
+  \item \emph{AGENT\_JABBER\_PASSWORD} -  password for authenticating as \texttt{AGENT\_JABBER\_ID} on \texttt{AGENT\_JABBER\_SERVER}
+  \item \emph{AGENT\_LOGGER\_CONFIG\_FILE} - log file format configuration (e.g. \texttt{/etc/copilot/loggerConf/agent-logger.conf})
+  \item \emph{AGENT\_WORK\_DIR} - working directory of the Agent (should be writeable)
+  \item \emph{HB\_CHAT\_SERVER} - domain name of the XMPP MUC server (e.g. conference.xmpp.cern.ch; optional)
+  \item \emph{HB\_CHAT\_ROOM} - chat room used for Heartbeat service (e.g. pilots-lounge; optional)
+\end{itemize}
+
+You might also want to take a look at the log format definition file (specified by JM\_LOGGER\_CONFIG\_FILE).
+
+\subsection{Starting the Agent}
+
+Agent can be started with copilot-agent. The output of the command should look like this:
+
+\lstset{caption=Starting \copilot Agent}
+\begin{lstlisting}
+$ copilot-agent
+[Fri Mar 25 17:09:02 2011] [info] Waking the component up.
+[Fri Mar 25 17:09:03 2011] [info] The security module does not need to be waken up.
+[Fri Mar 25 17:09:03 2011] [info] Component was waken up. Asking job manager for a job
+[Fri Mar 25 17:09:03 2011] [info] Asking jobmanager@xmpp.cern.ch for an address of the job manager
+[Fri Mar 25 17:09:03 2011] [debug] Sending message to jobmanager@xmpp.cern.ch the component (Msg ID:47b06aea-2222-4f41-be1b-507de80de51c)
+[Fri Mar 25 17:09:03 2011] [debug] Got ACK for 47b06aea-2222-4f41-be1b-507de80de51c
+\end{lstlisting}
+
+
+\section{Deployment of Co-Pilot Monitor}
+
+\subsection{Installing Co-Pilot Monitor}
+
+To obtain Monitor's source code and install it:
+\lstset{caption=Installing the Monitor}
+\begin{lstlisting}
+$ svn co https://cernvm-copilot-monitor.googlecode.com/svn/trunk/copilot-monitor\
+copilot-monitor
+$ cd copilot-monitor
+$ perl Makefile.PL
+$ make
+$ sudo make install-all
+\end{lstlisting}
+
+\subsection{Configuring Co-Pilot Monitor}
+
+Monitor's configuration file is located in \texttt{/etc/copilot/copilot-monitor.conf} and follows the same format as other Co-Pilot components: (VARIABLE\_NAME WHITESPACE VARIABLE\_VALUE).
+
+\begin{itemize}
+  \item \emph{MON\_JABBER\_SERVER} - address of your Jabber/XMPP server (e.g. xmpp.cern.ch)
+  \item \emph{MON\_JABBER\_DOMAIN} - domain which your Jabber/XMPP server is configured to serve (e.g. xmpp.cern.ch)
+  \item \emph{MON\_JABBER\_ID} - Jabber ID of the Job Manager (ID should be registered on your jabber server)
+  \item \emph{MON\_JABBER\_PASSWORD} - password for authenticating as \texttt{MON\_JABBER\_ID} on \texttt{MON\_JABBER\_SERVER}
+  \item \emph{CARBON\_SERVER} - address of Carbon database server
+  \item \emph{CARBON\_PORT} - port on which Carbon aggregation service is running (e.g. 2023)
+\end{itemize}
+
+\subsection{Starting the Monitor}
+
+Monitor can be started with the \texttt{copilot-monitor} command. The output should look like this:
+\lstset{caption=Starting \copilot Monitor}
+\begin{lstlisting}
+$ copilot-monitor
+[Thu Aug 11 19:52:58 2011] [info] The component does not need to be waken up.
+[Thu Aug 11 19:52:58 2011] [info] The security module does not need to be waken up.
+[Thu Aug 11 19:53:06 2011] [info] Sent 0 updates to Carbon.
+\end{lstlisting}
+
+\subsection{Installing Co-Pilot Dashboard}
+
+Monitor comes with a simplified dashboard interface for instant overview of the system. The dashboard is meant to augment the features provided by Graphite's web interface.
+
+To obtain the source code and install it:
+\lstset{caption=Installing the Dashboard}
+\begin{lstlisting}
+$ svn co https://cernvm-copilot-monitor.googlecode.com/svn/trunk/copilot-dashboard\
+copilot-dashboard
+$ cp -r copilot-dashboard /opt/graphite/webapp/content
+\end{lstlisting}
+
+The interface will be available on http://localhost:8000/content/copilot-dashboard/index.html
+
+\section{Deployment of Co-Pilot Heartbeat}
+
+\subsection{Installing Co-Pilot Heartbeat}
+
+To obtain source code of the utility and to install it:
+\lstset{caption=Installing the Monitor}
+\begin{lstlisting}
+$ svn co https://cernvm-copilot-monitor.googlecode.com/svn/trunk/copilot-heartbeat\
+copilot-heartbeat
+$ cd copilot-heartbeat
+$ perl Makefile.PL
+$ make
+$ sudo make install-all
+\end{lstlisting}
+
+\subsection{Configuring Co-Pilot Heartbeat}
+
+Heartbeat's configuration file is located in \texttt{/etc/copilot/copilot-heartbeat.conf} and follows the same format as other Co-Pilot components: (VARIABLE\_NAME WHITESPACE VARIABLE\_VALUE).
+
+\begin{itemize}
+  \item \emph{HB\_JABBER\_SERVER} - address of your Jabber/XMPP server (e.g. xmpp.cern.ch)
+  \item \emph{HB\_JABBER\_DOMAIN} - domain which your Jabber/XMPP server is configured to serve (e.g. xmpp.cern.ch)
+  \item \emph{HB\_JABBER\_ID} - Jabber ID of the Job Manager (ID should be registered on your jabber server)
+  \item \emph{HB\_JABBER\_PASSWORD} - password for authenticating as MON\_JABBER\_ID on MON\_JABBER\_SERVER
+  \item \emph{HB\_CHAT\_SERVER} - domain name of the XMPP MUC server (e.g. conference.xmpp.cern.ch)
+  \item \emph{HB\_CHAT\_ROOM} - chat room used for Heartbeat service (e.g. pilots-lounge)
+\end{itemize}
+
+\subsection{Configuring XMPP server}
+
+\copilot Heartbeat service requires a working MUC (Multi User Chat) server. Example configuration of the MUC module for Ejabberd is provided below.
+
+\lstset{caption=Example configuration of MUC module}
+\begin{lstlisting}
+{mod_muc, [
+          {host, "conference.@HOST@"},
+          {access, muc},
+          {access_create, muc_create},
+          {access_persistent, muc_create},
+          {access_admin, muc_admin},
+          {history_size, 0},
+          {min_presence_interval, 60},
+          {logging, false}
+         ]},
+\end{lstlisting}
+
+\subsection{Using command-line utility}
+\label{sct:heartbeatcmd}
+
+The command-line utility sends commands to components that are connected to the Heartbeat chat room and thus allows remote introspection
+of the system.
+
+\lstset{caption=Arguments of copilot-heartbeat utility}
+\begin{lstlisting}
+copilot-heartbeat [OPTIONS] [COMMAND] [JIDs]
+\end{lstlisting}
+
+You can use command line flags to override XMPP settings from the configuration file.
+
+\lstset{caption=Overriding name of the chat room}
+\begin{lstlisting}
+$ copilot-heartbeat --chat-room=dev-env list
+\end{lstlisting}
+
+List of supported commands can be seen with \texttt{--help} flag, or refer to section ~\ref{sct:heartbeatgetstatus}.
+
+To send the command to a specific component you can specify its full JID, a room JID or just its room nickname. If no JIDs are specified then the command will be sent to every component connected to the chat room.
+
+\lstset{caption=Requesting system load from several components}
+\begin{lstlisting}
+$ copilot-heartbeat systemLoad \
+jmgeneric@xmpp.cern.ch/alpha \
+pilots-lounge@conference.xmpp.cern.ch/e48b-42d9 \
+25af-ecf4
+Room nick   1min    5min    15min
+alpha       0.90    0.65    0.52
+e48b-42d9   1.51    1.23    1.13
+24af-ecf4   1.50    0.95    0.40
+\end{lstlisting}
+
+\section{Test Job submission}
+
+Jobs can be submitted with the \emph{copilot-job-submit} command provided in \emph{copilot-util} package.
+
+\lstset{caption=Obtaining copilot-util package from SVN}
+\begin{lstlisting}
+$ svn co https://cernvm.cern.ch/project/svn/copilot-util/trunk copilot-util
+$ perl Makefile.PL
+$ make
+$ sudo make install-all
+\end{lstlisting}
+
+The \texttt{copilot-job-submit} accepts the following arguments:
+\begin{itemize}
+  \item \texttt{--command} - file which will be executed by the agents
+  \item \texttt{--packages} - list of packages needed for the job to run
+  \item \texttt{--chirp-server} - address of the Chirp server used by the job manager
+  \item \texttt{--chirp-dir} - path to the directory exposed by local Chirp server
+\end{itemize}
+
+Let us set up a simple script which will print a sum of two numbers. Jobs can be executable files, binaries or scripts. In this case we will use a simple shell script:
+
+\lstset{caption=Test job (\texttt{calculator.sh})}
+\begin{lstlisting}
+#!/bin/bash
+
+echo "2 + 2" | bc
+\end{lstlisting}
+
+This script can be submitted to \copilot as a job with \texttt{copilot-job-submit} command:
+\lstset{caption=Submitting a job}
+\begin{lstlisting}
+$ copilot-job-submit \
+--command=calculator.sh \
+--chirp-server=cervnvma12.cern.ch \
+--chirp-dir=JM_CHIRP_WORK_DIR
+\end{lstlisting}
+
+The value of the \texttt{--chirp-server} flag will be provided to agents as the address of the machine where the Chirp server is running. By default \texttt{copilot-job-submit} sets it to the hostname of the machine from where it was executed.
+\texttt{JM\_CHIRP\_WORK\_DIR} should coincide with the directory defined as \texttt{JM\_CHIRP\_WORK\_DIR} in Manager's configuration file (see~\ref{sct:jmconfig}). After the job is fetched by the \copilot Agent and executed, its results should be available in \texttt{JM\_DONE\_JOB\_DIR} directory (see~\ref{sct:jmconfig}).
+
+
+\lstset{caption=Inspecting job results}
+\begin{lstlisting}
+$ cd JM_DONE_JOB_DIR/[Job ID]
+$ tar xvf [Job ID].tgz
+$ cat [Job ID]/stdout
+4
+\end{lstlisting}
+

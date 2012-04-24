@@ -1,0 +1,113 @@
+\documentclass[final,a4paper,10pt,abstracton]{scrreprt}
+
+
+\usepackage{draftwatermark}\SetWatermarkScale{5} %_DRAFT watermark
+\include{atex}
+
+\usepackage[underline=false,rounded corners=true]{macros/pgf-umlsd} % UML Sequence Diagrams macro
+
+\title{The CernVM Co-Pilot}
+% \subtitle{Technical Report}
+\author{Artem Harutyunyan}
+
+\providecommand{\cernvmcopilot}{{\scshape CernVM Co-Pilot~}}
+\providecommand{\copilot}{{\scshape Co-Pilot~}}
+\providecommand{\cern}{{\scshape cern~}}
+\providecommand{\cernvm}{{\scshape CernVM~}}
+
+\providecommand{\todo}[1]{\textcolor{red}{#1}}
+\definecolor {light-blue}{rgb}{230,244,255}
+
+\usepackage[nottoc]{tocbibind}
+
+\usepackage{makeidx}
+\makeindex
+
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{4}
+
+\begin{document}
+
+\selectlanguage{english}
+\renewcommand\today{March 2011}
+
+\pagestyle{empty}
+\begin{titlepage}
+	\begin{addmargin}[-\oddsidemargin]{-\evensidemargin}
+  		\newlength{\saveparindent}
+		\setlength{\saveparindent}{\parindent}
+		\setlength{\parindent}{0cm}
+
+  		\sf
+		\center
+		\vspace*{-1cm}
+		\mbox{
+	  		\parbox{4cm}{
+				\resizebox{4cm}{!}{\input{img/IMG_cernlogo}}
+%				
+%				%\begin{tikzpicture}[scale=0.5]
+%				%	\path[fill=black, join=round] (1,1)--(2,2)--(2,5)--(5,5)--(6,6)--(1,6)--(1,1)--(2,0)--(5,0)--(7,2)--(7,5)--(6,6)--(6,1)--cycle;
+%				%	\clip (6,6)--(5,5)--(5,2)--(2,2)--(1,1)--(6,1)--(6,6)--(5,7)--(2,7)--(0,5)--(0,2)--(1,1)--(1,6)--cycle;
+%				%	\shade[inner color=green, outer color=black] (3,4) circle(5.5cm);
+%				%\end{tikzpicture}
+	  		}
+	  		\parbox{9cm}{
+	    			%\LARGE CERN\\
+	    			%\large PH-SFT%\\[0.5cm]
+			}
+		}
+		\vspace*{2.5cm}
+ 
+  		{\large \scshape Portable Analysis Environment using Virtualization Technology (WP9)}\\[0.5cm]
+  		\HRule\\[0.4cm]
+		\huge Co-Pilot: The Distributed Job Execution Framework\\
+		\HRule\\[1.5cm]
+		
+%        \includegraphics[height=5cm]{marbles}\\[1.5cm]
+        \includegraphics{img/IMG_cernvmlogo}\\[1.5cm] 
+		\large Predrag Buncic \qquad Artem Harutyunyan\\[0.4cm]
+		%\today
+  
+  		\vfill
+		\large Refers to Co-Pilot 0.1\\[1ex]
+		%  \LARGE ---DRAFT---\\[1ex]
+		%  \LARGE www.grgen.net\\[6ex]
+		%  \LARGE Jakob Blomer \qquad Rubino Gei\ss\\[3ex]
+		%  \large \today\\
+  
+		\vfill
+		\large Technical Report\\
+		Version: 0.1 (Draft) \today 
+		%	\large ISSN 1432-7864	
+
+  		\setlength{\parindent}{\saveparindent}
+	\end{addmargin}
+\end{titlepage}
+\cleardoublepage
+\pagenumbering{roman}
+
+
+
+\abstract{
+The \cernvmcopilot\ is a framework which allows to integrate cloud and volunteer computing resources into the existing Grid infrastructures and exploit those resources for the execution of Grid jobs.  
+It can also be used to instantiate an independent ad-hoc distributed computing infrastructure  on top of virtualized resources.  
+}
+
+\tableofcontents
+\clearpage
+\pagenumbering{arabic}
+\pagestyle{headings}
+
+\include{content/overview}
+\include{content/protocol}
+\include{content/usecases}
+\include{content/deployment}
+
+
+\pagestyle{plain}
+\bibliographystyle{plain}
+\bibliography{copilotRefs,rfc}
+
+\printindex
+
+\end{document}

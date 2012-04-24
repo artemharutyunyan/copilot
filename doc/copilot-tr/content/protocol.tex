@@ -1,0 +1,560 @@
+\chapter{\cernvmcopilot Internals}
+\label{sct:protocol}
+
+\section{Introduction}
+Agents communicate with services over Jabber/XMPP \cite{rfc3920,rfc3921} instant messaging protocol. The messages they
+exchange are formatted using XML. The messages are enclosed in \emph{$<$message$>$} tag, which has three attributes: \emph{'from'} and
+\emph{'to'} (sender's and receiver's Jabber IDs), as well as the \emph{'id'} tag (unique ID of the message). The content of the message is enclosed in \emph{$<$body$>$} tag. All the values inside \emph{$<$body$>$} are
+base64 \cite{rfc3548} encoded.
+
+Each message body contains the \emph{'info'} tag. \emph{'info'} has the \emph{'command'} attribute, which contains the command needed
+to be performed by the peer (e.g. Agent sends 'jobDone' command when it has finished executing the job and uploading files). The \emph{'info'} tag also contains other attributes necessary to perform the command. Below we present the list of commands which agents send along with the appropriate response commands which they expect in response. 
+
+Every message by default should be acknowledged by the recipient by sending the \emph{ack} message, with empty \emph{'body'} tag. The ID of the message being acknowledged is set as the value of \emph{'ack'} attribute.
+Example:
+
+\lstset{backgroundcolor=\color{light-blue}}
+\lstset{tabsize=2, basicstyle=\footnotesize, captionpos=b}
+\lstset{caption=Example \emph{'ack'} message, label=fig:ack}
+\lstset{frame=single, language=XML}
+\begin{lstlisting}
+<message to='jm@jabber.org'
+                    from='agent@jabber.org'
+                    ack='1a58119b-5c0e-47e8-8320-b865cc4a502e'
+                    >
+                   <body>  </body>
+</message>
+\end{lstlisting}
+
+Acknowledgements can be disabled for arbitrary messages by including a \emph{'noack'} property in the \emph{'message'} tag.
+This property will signal the recipient not to send an acknowledgement.
+Example:
+
+\lstset{backgroundcolor=\color{light-blue}}
+\lstset{tabsize=2, basicstyle=\footnotesize, captionpos=b}
+\lstset{caption=Example message , label=fig:noack}
+\lstset{frame=single, language=XML}
+\begin{lstlisting}
+<message to='mon@jabber.org'
+         from='jm@jabber.org/alpha'
+         noack='1'>
+         <body>
+            <info command='__BASE64:cmVwb3J0RXZlbnQ='
+                  component='__BASE64:am9ib...scGhh'
+                  event='__BASE64:c2Vzc2lvbi5zdGFydA=='/>
+         </body>
+</message>
+\end{lstlisting}
+
+\section{Protocol commands}
+
+\subsection{Job request}
+\label{sct:protojobrequest}
+
+When Agent has a slot for running a job it broadcasts to the Job Managers the \emph{'\indexed{want\_getJob}'} (sect. ~\ref{sct:wantgetjob})
+request which contains Agent's configuration formatted in JDL \cite{jdl}, hostname and the \textcolor{red}{ip (to be implemented)}
+of the machine where the Agent runs. Upon receiving the message job managers which have jobs for execution send back to
+the agent \emph{'\indexed{have\_getJob}'} \ref{sct:havegetjob} command. The agent makes actual job request (\emph{'\indexed{getJob}'} command \ref{sct:getjob})
+to the job manager from which the first \emph{'\indexed{have\_getJob}'} \ref{sct:havegetjob} command has been received. The job manager replies with
+\emph{'\indexed{runJob}'} \ref{sct:runjob} command which contains the information about the job. The job request sequence is presented on
+Figure~\ref{fig:jobreq}. Below the format of the job request commands is described.
+
+\begin{figure}
+  \centering
+
+  \begin{sequencediagram}
+    \tikzstyle{instyle}+=[rounded corners=3.2mm, bottom color=blue]
+      \newthread{agent}{Co-Pilot Agent}
+      \newinstmult[5]{manager}{Co-Pilot Job Manager}
+
+      \begin{call}{agent}{want\_getJob}{manager}{have\_getJob}
+      \end{call}
+
+      \begin{call}{agent}{getJob}{manager}{runJob}
+      \end{call}
+  \end{sequencediagram}
+  \caption{Job request commands}
+  \label{fig:jobreq}
+\end{figure}
+
+\subsubsection{\indexed{want\_getJob}}
+\label{sct:wantgetjob}
+This message is used to chose a Job Manager to which a \emph{'\indexed{getJob}'} request \ref{sct:getjob} request eventually is
+going to be made: the client sends it to the broadcast address and continues the communication with the Job Manager from which responded the quickest.
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'want\_getJob'
+  \item \emph{agentHost} - hostname of the agent
+  \item \todo{\emph{agentIP} - ip of the agent' to be implemented}
+  \item \emph{jdl - agent host configuration in JDL format}
+\end{itemize}
+
+Example:
+
+\lstset{backgroundcolor=\color{light-blue}}
+\lstset{tabsize=2, basicstyle=\footnotesize, captionpos=b}
+\lstset{caption=Example \emph{'want\_getJob'} request, label=fig:wantgetjobexpl}
+\lstset{frame=single, language=XML}
+% \lstset{numbers=left, numberstyle=\tiny, stepnumber=2, numbersep=5pt}
+% \lstset{keywordstyle=\color{red}\bfseries\emph}
+\begin{lstlisting}
+<message to='jm@jabber.org' from='agent@jabber.org'>
+  <body>
+    <info agentHost='_BASE64:Y3ZtYXBwaTI0LmNlcm4uY2g='
+          jdl='_BASE64:CiAgICBbCi...........KICAgIF0='
+          command='_BASE64:Z2V0Sm9i'
+    />
+  </body>
+</message>
+\end{lstlisting}
+
+The host configuration in JDL format has the following attributes:
+
+\lstset{backgroundcolor=\color{light-blue}}
+\lstset{tabsize=2, basicstyle=\footnotesize, captionpos=b}
+\lstset{caption=Example host configuration in JDL format, label=fig:wantgetjobexpl}
+\lstset{frame=single}
+\begin{lstlisting}
+[
+  Requirements = ( other.Type == "Job" );
+  Version = "0";
+  Platform = "Linux-i686";
+  LocalDiskSpace = 4257288;
+  WNHost = "cvmappi24.cern.ch";
+  Memory = 1010;
+  Type = "machine";
+  Uname = "2.6.26.8-0.1.smp.gcc3.4.x86.i686";
+  FreeMemory = 683;
+  Swap = 127;
+  FreeSwap = 127
+]
+\end{lstlisting}
+
+\subsubsection{\indexed{have\_getJob}}
+\label{sct:havegetjob}
+This message is sent by the job manager as a reply to \emph{'\indexed{want\_getJob}'} \ref{sct:wantgetjob} message.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'have\_getJob'
+  \item \emph{requireFile} - prerequisite file (optional)
+ \end{itemize}
+
+Before making \emph{'\indexed{getJob}'} \ref{sct:getjob} request Agent has to make sure that a file required by \emph{requireFile} attribute is present on the host.
+In case when attribute is not present in the message sent by the Job Manager no checks are necessary.
+
+\subsubsection{\indexed{getJob}}
+\label{sct:getjob}
+Once the client knows the full JID (Jabber ID + resource) of the Job Manager which has a matching job it sends the real job request which (should eventually result in the  \emph{'\indexed{runJob}'} response \ref{sct:runjob}). The   \emph{'\indexed{getJob}'}  message should has the same format as \emph{'\indexed{want\_getJob}'}.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'want\_getJob'
+  \item \emph{agentHost} - hostname of the agent
+  \item \todo{\emph{agentIP} - ip of the agent' to be implemented}
+  \item \emph{jdl - agent host configuration in JDL format}
+\end{itemize}
+
+
+\subsubsection{\indexed{runJob}}
+\label{sct:runjob}
+
+Upon receiving \emph{'\indexed{getJob}'} \ref{sct:getjob} request from the client the Job Manager sends to the client the job for execution.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'runJob'
+  \item \emph{jmJobData} - Internal data describing the job (optional)
+  \item \emph{job} - Job information is enclosed in $<$job$>$ tag, which contains the following attributes:
+    \subitem \emph{chirpUrl} - Address of Chirp server from where to get the job input and put the job output (NOTE: Will be changed by the reference to storage adapter which the Agent should ask for the input and upload output)
+    \subitem \emph{inputDir} - Directory on Chirp server from which to get the input files of the job
+    \subitem \emph{environment} - Environment variables which must be set before job execution
+    \subitem \emph{outputDir} - Directory to which to write the output
+    \subitem \emph{packages} - List of application software packages needed by the job
+    \subitem \emph{inputFiles} - List of job input files
+    \subitem \emph{arguments} - Command line arguments of the job execution command
+    \subitem \emph{id} - Job ID
+    \subitem \emph{command} - Job execution command
+    \subitem \emph{validation} - Name of the script for validating the job after it is finished (optional)
+\end{itemize}
+
+If the Job Manager sends the optional \emph{'jmJobData'} property, then the agent will re-send the same value in subsequent requests. If the property isn't provided, Agent will omit it as well.
+
+\begin{figure}
+  \centering
+  \begin{sequencediagram}
+    \tikzstyle{instyle}+=[rounded corners=3.2mm, bottom color=blue]
+      \newthread{agent}{Co-Pilot Agent}
+      \newinstmult[5]{manager}{Co-Pilot Job (or Storage) Manager}
+
+      \begin{call}{agent}{want\_getJobOutputDir}{manager}{have\_getJobOutputDir}
+      \end{call}
+      \begin{call}{agent}{getJobOutputDir}{manager}{storeJobOutputDir}
+      \end{call}
+
+  \end{sequencediagram}
+  \caption{Output directory request commands}
+  \label{fig:outputdirreq}
+\end{figure}
+
+\subsection{Job output directory request}
+\label{sct:joboutput}
+When the job execution is finished the client asks the Storage Manager to provide a directory where the output produced by the job must be stored. The client sends a \emph{'\indexed{want\_getJobOutputDir}'} \ref{sct:wantgetjoboutputdir} request to choose the Job or Storage manager, which is followed by \emph{'\indexed{getJobOutputDir}'} request \ref{sct:getjoboutputdir}. The client expects  \emph{'\indexed{storeJobOutputDir}'} \ref{sct:storejoboutputdir} response. Output directory request sequence is given on Figure \ref{fig:outputdirreq}.
+
+\subsubsection{\indexed{want\_getJobOutputDir}}
+\label{sct:wantgetjoboutputdir}
+This message is used to chose a Job Manager (or a Storage Manager) to which a \emph{'\indexed{getJobOutputDir}'} request \ref{sct:getjoboutputdir} request eventually is
+going to be made: the client sends it to the broadcast address and continues the communication with the Job Manager (or a Storage Manager) from which responded the quickest.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'want\_getJobOutputDir'
+  \item \emph{agentHost} - Hostname of the client
+  \item \todo{\emph{agentIP} - IP of the agent' to be implemented}
+  \item \emph{jobID} - Job ID (the one which was received with runJob)
+  \item \emph{jmJobData} - Internal data associated with the job (optional)
+\end{itemize}
+
+If the \emph{'jmJobData'} property was already sent to the Agent (with \emph{'runJob'} command), then the Agent will update its value and accordingly send the new value with subsequent requests.
+
+\subsubsection{\indexed{have\_getJobOutputDir}}
+\label{sct:havegetjoboutputdir}
+This message is sent by the Job or Storage Manager as a reply to \emph{'\indexed{want\_getJobOutputDir}'} \ref{sct:wantgetjoboutputdir} message.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'have\_getJobOutputDir'
+ \end{itemize}
+
+\subsubsection{\indexed{getJobOutputDir}}
+\label{sct:getjoboutputdir}
+Clients send the output job directory request to storage server when the job was executed and the output needs to be uploaded.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'getJobOutputDir'
+  \item \emph{agentHost} - Hostname of the client
+  \item \emph{jobID} - Job ID (the one which was received with runJob)
+  \item \emph{jmJobData} - Job Manager's internal data associated with the job
+\end{itemize}
+
+\subsubsection{\indexed{storeJobOutputDir}}
+\label{sct:storejoboutputdir}
+When Adapter receives an output directory request from the job it creates the directory, sets the write access permission to the Agent, and sends back the directory address.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'storeJobOutputDir'
+  \item \emph{outputChirpUrl} - Chirp server host and port (separated by semicolon)
+  \item \emph{outputDir} - Directory on the chirp server to put files
+  \item \emph{jobID} - Job ID (the one which was received with getJobOutputDir)
+  \item \emph{jmJobData} - Job Manager's internal data associated with the job (optional)
+\end{itemize}
+
+\subsection{Job completion}
+\subsubsection{\indexed{jobDone}}
+\label{sct:jobdone}
+When the job command execution is over and output files are uploaded to the output directory the client reports to the Job Manager that the job is done. Job completion request sequence is presented on Figure \ref{fig:jobdone}.
+\begin{figure}
+  \centering
+  \begin{sequencediagram}
+    \tikzstyle{instyle}+=[rounded corners=3.2mm, bottom color=blue]
+      \newthread{agent}{Co-Pilot Agent}
+      \newinstmult[5]{manager}{Co-Pilot Job Manager}
+      \mess{agent}{jobDone}{manager}
+  \end{sequencediagram}
+  \caption{Job completion command}
+  \label{fig:jobdone}
+\end{figure}
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'jobDone'
+  \item \emph{exitCode} - Job execution exit code
+  \item \emph{agentHost} - Hostname of the client
+  \item \emph{state} - Job state (e.g. 'done')
+  \item \emph{jobID} - Job ID
+  \item \emph{jmJobData} - Job Manager's internal data associated with the job
+\end{itemize}
+
+\subsection{Redirection of commands}
+
+Messages exchanged by Co-Pilot components can be redirected. This allows having separate instances  of Managers for performing different tasks and in the same time configuring clients only with a single communication address. For example one can setup an adapter which is used to retrieve job details and input files and another adapter which is used to upload job execution results and does job finalization (e.g. the use case of ALICE experiment \ref{sct:usecasealice}).
+
+\begin{figure}
+  \centering
+  \begin{sequencediagram}
+    \tikzstyle{instyle}+=[rounded corners=3.2mm, bottom color=blue]
+      \newthread{agent}{Co-Pilot Agent}
+      \newinstmult[2]{manager}{Co-Pilot Manager}
+
+      \begin{call}{agent}{want\_getJob}{manager}{redirect}
+      \end{call}
+
+      \newinst[1]{jobmanager}{Co-Pilot Job Manager}
+
+      \begin{call}{agent}{want\_getJob}{jobmanager}{have\_getJob}
+      \end{call}
+  \end{sequencediagram}
+  \caption{Job request commands}
+  \label{fig:redirect}
+\end{figure}
+
+
+\subsubsection{\indexed{redirect}}
+\label{sct:redirect}
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'redirect'
+  \item \emph{referral} - Jabber ID of the service to which the redirection should be made
+  \item \emph{info} - Data which should be conveyed to the referral
+ \end{itemize}
+
+
+Example:
+
+The following redirection command received by the Co-Pilot component
+
+\lstset{backgroundcolor=\color{light-blue}}
+\lstset{tabsize=2, basicstyle=\footnotesize, captionpos=b}
+\lstset{caption=Example \emph{'want\_getJob'} request, label=fig:redirect}
+\lstset{frame=single, language=XML}
+% \lstset{numbers=left, numberstyle=\tiny, stepnumber=2, numbersep=5pt}
+% \lstset{keywordstyle=\color{red}\bfseries\emph}
+\begin{lstlisting}
+<message to='agent@cvmappi21.cern.ch' from='jmreal@cvmappi21.cern.ch'>
+	<body>
+		<info referral='_BASE64:c3RvcmFnZXJlYWxAY3ZtYXBwaTIxLmNlcm4uY2g='
+	              command='_BASE64:cmVkaXJlY3Q='>
+			<info to='_BASE64:am1yZWFsQGN2bWFwcGkyMS5jZXJuLmNo'
+			      exitCode='_BASE64:MA=='
+			      jobID='_BASE64:MzA4MDE3NDE='
+			      state='_BASE64:ZG9uZQ=='
+            jmJobData='_BASE64:c3RhcnRlZEF0PQo='
+			      command='_BASE64:am9iRG9uZQ==' />
+		</info>
+	</body>
+</message>
+\end{lstlisting}
+
+will result into sending the following message to 'storagereal@cvmappi21.cern.ch' (which corresponds to the Base64 decoded value of 'referral' attribute from previous command):
+
+\lstset{backgroundcolor=\color{light-blue}}
+\lstset{tabsize=2, basicstyle=\footnotesize, captionpos=b}
+\lstset{caption=Example \emph{'want\_getJob'} request, label=fig:realredirectxml}
+\lstset{frame=single, language=XML}
+% \lstset{numbers=left, numberstyle=\tiny, stepnumber=2, numbersep=5pt}
+% \lstset{keywordstyle=\color{red}\bfseries\emph}
+\begin{lstlisting}
+
+<message to='storagereal@cvmappi21.cern.ch' from='agent@cvmappi21.cern.ch'>
+	<body>
+		<info to='_BASE64:am1yZWFsQGN2bWFwcGkyMS5jZXJuLmNo'
+		      exitCode='_BASE64:MA=='
+		      jobID='_BASE64:MzA4MDE3NDE='
+          jmJobData='_BASE64:c3RhcnRlZEF0PQo='
+		      state='_BASE64:ZG9uZQ=='
+		      command='_BASE64:am9iRG9uZQ==' />
+	</body>
+</message>
+\end{lstlisting}
+
+\subsection{Co-Pilot monitoring} \todo{Contribution by GSoC 2011 Student J. Lisec}
+\subsubsection{\indexed{reportEvent}}
+\label{sct:reportevent}
+To log the events happening in a component, one can send a \emph{'reportEvent'} command as a short blurb about the event.
+
+\begin{figure}
+  \centering
+  \begin{sequencediagram}
+    \tikzstyle{instyle}+=[rounded corners=3.2mm, bottom color=blue]
+      \newthread{monitor}{Co-Pilot Monitor}
+      \newinstmult[2]{manager}{Co-Pilot Job Manager}
+      \mess{manager}{reportEvent}{monitor}
+  \end{sequencediagram}
+  \caption{Event reporting command}
+  \label{fig:reporteventseq}
+\end{figure}
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'reportEvent'
+  \item \emph{component} - identifier of the component, can be unique (e.g. 'jobmanager.generic.jm1') or represent a group of components (e.g.'agent').
+  \item \emph{event} - name of the even that is being reported
+\end{itemize}
+
+
+\subsubsection{\indexed{reportEventDuration}}
+\label{sct:reporteventduration}
+To measure duration of certain events, the \emph{'reportEventDuration'} command can be sent to the Monitor.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'reportEventDuration'
+  \item \emph{component} - identifier of the component. It can be either unique (e.g. 'jobmanager.generic.jm1') or represent a group of components (e.g. 'agent')
+  \item \emph{event} - name of the event that is being reported
+  \item \emph{duration} - duration of the event in milliseconds
+\end{itemize}
+
+
+\subsubsection{\indexed{reportEventValue}}
+\label{sct:reporteventvalue}
+Unlike \emph{'reportEvent'} whose values are sampled and sent every few seconds to the database, this command reports the given value immediately. Example use cases include monitoring system resources e.g. CPU load or network bandwidth.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'reportEventValue'
+  \item \emph{component} - identifier of the component. It can be either unique (e.g. 'jobmanager.generic.jm1') or represent a group of components (e.g. 'agent')
+  \item \emph{event} - name of the event that is being reported
+  \item \emph{value} - numerical value representing the event
+\end{itemize}
+
+\newpage 
+\subsection{System introspection}
+
+\begin{figure}
+  \centering
+  \begin{sequencediagram}
+    \tikzstyle{instyle}+=[rounded corners=3.2mm, bottom color=blue]
+      \newthread{heartbeat}{Co-Pilot Heartbeat Utility}
+      \newthread{component}{Co-Pilot Component}
+
+      \begin{call}{heartbeat}{Heartbeat:ping}{component}{pong}
+      \end{call}
+      \begin{call}{heartbeat}{Heartbeat:getStatus}{component}{haveStatus}
+      \end{call}
+  \end{sequencediagram}
+  \caption{System introspection commands}
+  \label{fig:heartbeatfig}
+\end{figure}
+
+Co-Pilot protocol defines a few simple commands which allow remote system introspection. For example, it is possible to query the system load or disk usage of a system on which the component is running.
+
+\subsubsection{\indexed{Heartbeat:getStatus}}
+\label{sct:heartbeatgetstatus}
+
+To request the information of a particular system component one sends the \emph{'getStatus'} command. This command is usually sent by the \texttt{copilot-heartbeat} (see ~\ref{sct:heartbeatcmd}) command.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'Heartbeat:getStatus'
+  \item \emph{component} - name of the component whose status is needed (eg. 'systemLoad', 'diskUsage', etc.)
+\end{itemize}
+
+\emph{\bf Accepted values of \texttt{component} attribute}
+\begin{itemize}
+  \item \emph{systemLoad}
+  \item \emph{diskUsage}
+  \item \emph{memoryUsage}
+  \item \emph{runningProcesses}
+\end{itemize}
+
+The flow of message exchange is described on Figure \ref{fig:heartbeatfig}.
+
+\subsubsection{\indexed{haveStatus}}
+\label{sct:heartbeathavestatus}
+This message is sent as a reply to \emph{'Heartbeat:getStatus'}.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'haveStatus'
+  \item \emph{component} - component whose status is being reported
+  \item \emph{status} - a string describing the component's status 
+\end{itemize}
+
+
+\subsubsection{\indexed{Heartbeat:ping}}
+\label{sct:heartbeatping}
+
+Heartbeat service may occasional send the ping command which just tests the availability of the receiver.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'Heartbeat:ping' 
+\end{itemize}
+
+\subsubsection{\indexed{pong}}
+\label{sct:heartbeatpong}
+
+This command is used as a reply to the \emph{'Heartbeat:ping'} command.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'pong'
+\end{itemize}
+
+
+\subsection{Secure mode of operation}
+
+Co-Pilot components can also operate in secure mode. In that case all messages they exchange are encrypted using AES symmetric encryption algorithm. Encryption is done using 256 bit key, which is generated by the client and is sent along the request to the Manager. The session key itself is encrypted using RSA algorithm with Adapter's public key (so it can be decrypted only using corresponding private key. Adapter encrypts the replies which it sends to agent using the key it got during the request.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{session\_key} - The session key which was used to encrypt the message
+  \item \emph{info} - The actual message
+ \end{itemize}
+
+
+
+\section{Co-Pilot Monitoring}
+
+\subsection{Concepts}
+Co-Pilot's monitoring subsystem is using \indexed{Graphite}\cite{graphite} for data storage and graphing.
+
+
+Graphite's underlying database, Whisper, also called round-robin database, stores its data into files of predetermined size.
+The size of a database is calculated by data retention for each metric, for instance, it can store two weeks worth data at the one minute precision, meaning
+that there will be a data point stored for every minute in those two weeks.
+
+Metric (event in Co-Pilot jargon), is a name of a data being collected and it's translated into a path by Whisper.
+A path is constituted of individual path components which are delimited with a full stop.
+
+\lstset{caption=Example Graphite paths}
+\begin{lstlisting}
+copilot.jobmanager.generic.default.system.net.in.eth0
+copilot.jobmanager.generic.default.system.net.out.eth0
+\end{lstlisting}
+
+In Graphite's web interface and on the file system full stops are used to represent directories.
+Replacing a path component with an asterisk will combine several metrics into a single graph.
+
+\lstset{caption=Combined Graphite path}
+\begin{lstlisting}
+copilot.jobmanager.generic.default.system.net.*.eth0
+\end{lstlisting}
+
+For durations (events reported with \emph{'\indexed{reportEventDuration}'} \ref{sct:reporteventduration}),
+Co-Pilot Monitor will store the following data for each sample along with the duration:
+\begin{itemize}
+  \item \emph{(event).start} - logged when the event starts
+  \item \emph{(event).end} - logged when measuring stops
+  \item \emph{(event).avg} - arithmetical mean of the duration
+  \item \emph{(event).gmean} - geometrical mean of the duration
+  \item \emph{(event).min} - shortest durations
+  \item \emph{(event).max} - longest durations
+\end{itemize}
+
+\subsection{\indexed{Monitored events}}
+\label{sct:monitoredevents}
+The following list contains paths of events which are being reported by Co-Pilot Monitor:
+
+\begin{itemize}
+  \item \emph{copilot.monitor.updates} - number of updates logged per sample
+  \item \emph{copilot.jobmanager.(type).(jid).job.succeeded} - job completed successfully 
+  \item \emph{copilot.jobmanager.(type).(jid).job.failed} - job exited with an error
+  \item \emph{copilot.jobmanager.(type).(jid).queuedJobs} - size of the job queue
+  \item \emph{copilot.jobmanager.(type).(jid).error.invalidJobId} - Manager received an request with non-existing job
+  \item \emph{copilot.jobmanager.(type).(jid).error.emptyQueue} - the job queue was empty when either \emph{'\indexed{want\_getJob}'} \emph{'\indexed{getJob}'} command was received
+  \item \emph{copilot.jobmanager.(type).(jid).system.disk.available.(disk)} - available disk space (in megabytes)
+  \item \emph{copilot.jobmanager.(type).(jid).system.disk.used.(disk)} - used disk space (in megabytes)
+  \item \emph{copilot.jobmanager.(type).(jid).system.load.1min} - system load in past minute
+  \item \emph{copilot.jobmanager.(type).(jid).system.load.5min} - average load in past five minutes
+  \item \emph{copilot.jobmanager.(type).(jid).system.load.15min} - average load in past 15 minutes
+  \item \emph{copilot.jobmanager.(type).(jid).system.net.in.(interface)} - incoming network bandwidth (in megabytes)
+  \item \emph{copilot.jobmanager.(type).(jid).system.net.out.(interface)} - outgoing network bandwidth (in megabytes)
+  \item \emph{copilot.jobmanager.(type).(jid).system.ram.used.(mem|swap)} - used memory (in megabytes)
+  \item \emph{copilot.jobmanager.(type).(jid).system.ram.available.(mem|swap)} - available memory (in megabytes)
+\end{itemize}
+
+Note that \emph{(type)} represents a type of a Job Manager that has reported the event (Generic, AliEn or PanDA) and that \emph{(jid)} is the XMPP resource of a particular Job Manager instance.
