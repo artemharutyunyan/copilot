@@ -1,0 +1,56 @@
+#!/usr/bin/perl -w
+
+use Copilot::Component::KeyManager;
+use Copilot::Container::XMPP;
+
+use Copilot::Config;
+
+use Data::Dumper;
+use POE;
+
+use strict;
+use warnings;
+
+my $component = 'KeyManager';
+
+my $config = new Copilot::Config('copilot-key-manager');
+
+my $jabberServer = $config->{'KM_JABBER_SERVER'};
+my $jabberDomain = $config->{'KM_JABBER_DOMAIN'};
+
+my $jabberID = $config->{'KM_JABBER_ID'};
+my $jabberPassword = $config->{'KM_JABBER_PASSWORD'};
+
+my $loggerConfig = $config->{'KM_LOGGER_CONFIG_FILE'};
+
+my $ticketValidity = $config->{'KM_TICKET_VALIDITY'};
+
+my $keyManagerAddress = $config->{'KM_JABBER_ADDRESS'};
+my $pubKeysFile = $config->{'PUBLIC_KEYS_FILE'};
+
+my $componentPublicKeyFile = $config->{'KM_PUBLIC_KEY_FILE'};
+my $componentPrivateKeyFile = $config->{'KM_PRIVATE_KEY_FILE'};
+
+my $jm = new Copilot::Container::XMPP (
+                                         {
+                                            Component => $component,
+                                            LoggerConfig => $loggerConfig,
+                                            JabberID => $jabberID,
+                                            JabberPassword => $jabberPassword,
+                                            JabberDomain => $jabberDomain,
+                                            JabberServer => $jabberServer,
+                                            ComponentOptions => {
+                                                                TicketValidity => $ticketValidity,
+                                                              },
+                                            SecurityModule => 'Provider',                                                      
+                                            SecurityOptions => {
+                                                                KMAddress => $keyManagerAddress,
+                                                                PublicKeysFile => $pubKeysFile,
+                                                                ComponentPublicKey => $componentPublicKeyFile, 
+                                                                ComponentPrivateKey => $componentPrivateKeyFile, 
+                                                               },
+                                        } 
+                                  );                           
+
+POE::Kernel->run();
+

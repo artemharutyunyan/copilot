@@ -1,0 +1,33 @@
+==== CernVM Co-Pilot StorageManger PanDA ====
+
+== Directory structure ==
+
+etc/ - configuration files for components 
+bin/ - component startup scripts 
+
+== Configuring Co-Pilot ==
+
+All the configuration files are kept under /etc/copilot directory (unless one provided --sysconfdir or --prefix 
+during ./configure). Each component reads configuration from 2 files:
+
+    * /etc/copilot/Copilot.conf - contains general configurationbn information (e.g. the location of a file which 
+                                  with public keys of the components) . This config file is optional
+
+    * /etc/copilot/copilot-jobmanager-generic.conf- contains configuraion specific to the given component (e.g. JobManager.conf contains the Jabber  
+			                            ID of the Job Manager component)
+    */etc/copilot/copilot-storagemanager-panda.conf - contains configuration specific to the giver component (eg. user to run panda data movement)
+Each configuration directive in a file is preceded by the comment, which describes the given configuration directive. Configuration
+directives from Copilot.conf can be ovveriden inside component configuration file.
+
+== Installation == 
+
+To install the Co-Pilot Generic Job Manager type:
+
+    make install 
+
+
+== Starting Co-Pilot StorageManager PanDA ==
+
+Startup scripts are kept in /usr/bin directory (unless one provided --bindir or --prefix during ./configure)
+
+/usr/bin/copilot-storagemanager-panda -starts Co-Pilot Storage Manager for PanDA

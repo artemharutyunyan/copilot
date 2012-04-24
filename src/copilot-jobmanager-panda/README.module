@@ -1,0 +1,9 @@
+--- INTRODUCTION ---
+
+Contains Copilot Jobadapter package for Panda
+
+--- INSTALLATION ---
+
+perl Makefile.PL
+make
+make install

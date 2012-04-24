@@ -1,0 +1,76 @@
+#!/bin/bash
+
+export COPILOT_CONFIG=COPILOT_CONFIG_DIR_REPLACE
+
+exec perl -x -- $0 $*
+
+################################################################
+#!perl -w
+################################################################
+
+
+#!/usr/bin/perl -w
+#
+=pod 
+
+=head1 DESCRIPTION Copilot job manager (aka adapter) for Panda 
+
+This script creates an instance of Copilot::Container::XMPP inside which copilot job manager runs 
+
+=cut
+
+
+use Copilot::Component::JobManager::Panda;
+use Copilot::Container::XMPP;
+use Copilot::Config;
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use POE;
+
+my $component = 'JobManager::Panda';
+my $config = new Copilot::Config ('copilot-jobmanager-panda');
+
+my $chirpWorkDir = $config->{'JM_CHIRP_WORK_DIR'};
+
+my $jabberServer = $config->{'JM_JABBER_SERVER'};
+my $jabberDomain = $config->{'JM_JABBER_DOMAIN'};
+
+my $jabberID = $config->{'JM_JABBER_ID'};
+my $jabberPassword = $config->{'JM_JABBER_PASSWORD'};
+
+my $storageManagerJID = $config->{'SM_JABBER_ADDRESS'};
+my $keyServerJID = $config->{'KM_JABBER_ADDRESS'};
+
+my $loggerConfig = $config->{'JM_LOGGER_CONFIG_FILE'};
+
+
+my $publicKeyFile = $config->{'PUBLIC_KEYS_FILE'}; 
+my $componentPublicKey= $config->{'JM_PUBLIC_KEY_FILE'}; 
+my $componentPrivateKey = $config->{'JM_PRIVATE_KEY_FILE'}; 
+
+my $jm = new Copilot::Container::XMPP (
+                                        {
+                                            Component => $component,
+                                            LoggerConfig => $loggerConfig,
+                                            JabberID => $jabberID,
+                                            JabberPassword => $jabberPassword,
+                                            JabberDomain => $jabberDomain,
+                                            JabberServer => $jabberServer,
+                                            ComponentOptions => {
+                                                                ChirpDir => $chirpWorkDir ,
+                                                                StorageManagerAddress => $storageManagerJID,
+                                                              },
+#                                            SecurityModule => 'Provider',
+#                                            SecurityOptions => {
+#                                                                KMAddress => $keyServerJID,
+#                                                                PublicKeysFile => $publicKeyFile,
+#                                                                ComponentPublicKey => $componentPublicKey, 
+#                                                                ComponentPrivateKey => $componentPrivateKey, 
+#                                                               },                                                                        
+                                        } 
+                                  );                           
+
+POE::Kernel->run();

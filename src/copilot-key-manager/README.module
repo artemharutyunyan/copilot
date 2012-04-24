@@ -1,0 +1,9 @@
+--- INTRODUCTION ---
+
+Contains Copilot KeyManager perl package
+
+--- INSTALLATION ---
+
+perl Makefile.PL
+make
+make install

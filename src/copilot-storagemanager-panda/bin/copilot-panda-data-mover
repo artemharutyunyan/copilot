@@ -1,0 +1,131 @@
+#!/usr/bin/perl
+use Getopt::Std;
+use File::Glob ':glob';
+
+my (%opt,$jobid,$agentHost);
+getopts('hj:H:',\%opt);
+if(defined $opt{h} or (!defined $opt{j} and !defined $opt{H}))
+{
+	usage();
+	exit(1);
+}
+else
+{
+	$jobid=$opt{j};
+	$agentHost=$opt{H};
+}
+
+my $rootdir="/tmp/Chirp";
+my $workdir=$rootdir."/".$jobid;
+my $globfile=$workdir."/*tar.gz";
+my $outdir=$workdir."/output-sandbox";
+my $outfile=$outdir."/OutputFiles.xml";
+my $pandadir=$workdir."/panda-pilot-copilot";
+my @tarfiles=bsd_glob("$globfile");
+
+foreach $file(@tarfiles)
+{
+	`cd $workdir;tar zxvf $file;cd -`;
+}
+
+my $fail=upload_register_file($outfile);
+update_job_status($outdir,$agentHost,$fail);
+
+sub upload_register_file
+{
+	my $outfile=shift();
+	my $failed=0;
+	my ($dsname,%file,$guid,$lfn,$pfn,$failed);
+	if(!-f $outfile)
+	{
+		$failed=1;
+		return $failed;
+	}
+	open(OT,$outfile)||die "cannot open file $outfile";
+	while(<OT>)
+	{
+		if($_=~/\<dataset\>(\S+)\<\/dataset\>/)
+		{
+			$dsname=$1;
+		}
+		elsif($_=~/\<guid\>(\S+)\<\/guid\>/)
+		{
+			$guid=$1;
+		}
+		elsif($_=~/\<lfn\>(\S+)\<\/lfn\>/)
+		{
+			$lfn=$1;
+			$pfn=$outdir."/".$lfn;
+			$file{$guid}{'lfn'}=$lfn;
+			$file{$guid}{'pfn'}=$pfn;
+		
+			$lfn="";
+			$guid="";
+			$pfn="";
+		}
+	}
+
+	print "dsname=$dsname\n";
+	foreach $guid(keys %file)
+	{
+		$lfn=$file{$guid}{'lfn'};
+		$pfn=$file{$guid}{'pfn'};
+		print "guid=$guid\nlfn=$lfn\npfn=$pfn\n";
+		if(!-f $pfn)
+		{
+			print "missing output files for job $jobid : $pfn\n";
+			$failed=1;
+		}
+		else
+		{
+			$mvcmd="lcg python copMover.py -d $dsname -l $lfn -g $guid -p $pfn";
+			print "cd $pandadir;$mvcmd\n";
+			system("cd $pandadir;$mvcmd");
+			$lrcmd="cd $pandadir;export LFC_HOST=lfc.aglt2.org;lcg lcg-lr --vo atlas -b guid:$guid";
+			print "verify file transfer and registeration with command : $lrcmd\n";
+			$ret=system("$lrcmd");
+			if($ret!=0)
+			{
+				print "file uploading and registering failed\n";
+				$failed=1;
+				break;
+			}
+		}	
+	}
+	return $failed;
+}
+
+sub update_job_status
+{
+	my ($jsdir,$host,$failed)=@_;
+	my $jobstatus,$short_host;
+	if ($failed)
+	{
+		$jobstatus="failed";
+	}
+	else
+	{
+		$jobstatus="finished";
+	}
+	if($host=~/(\S+?)\.\S+/)
+	{
+		$short_host=$1;
+	}
+	else
+	{
+		$short_host=$host;
+	}
+	$jscmd="cd $pandadir;lcg python copilot_update_panda.py -d $jsdir -H $short_host -s \"$jobstatus\"";
+	print "update job status to $jobstatus with command  ".$jscmd."\n";
+	$ret=system("$jscmd");
+	if($ret==0)
+	{
+		print "job status has been successfully updated to PanDA server\n";
+	}
+}
+sub usage
+{
+	print "USAGE: $ARGV[0]\n";
+	print "-h help\n";
+	print "-j jobid\n";
+}
