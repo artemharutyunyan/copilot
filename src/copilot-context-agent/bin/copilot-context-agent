@@ -1,0 +1,103 @@
+#!/usr/bin/perl -w
+
+=pod 
+
+=head1 DESCRIPTION Copilot agent
+
+This script creates an instance of Copilot::Container::XMPP inside which copilot agent runs 
+
+=cut
+
+use Copilot::Component::ContextAgent;
+use Copilot::Container::XMPP;
+
+use Copilot::Config;
+use Getopt::Long;
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use POE;
+
+my ($contextID, $contextKey, $debug);
+    
+GetOptions ('id=s'  => \$contextID,
+            'key=s' => \$contextKey,
+            'debug' => \$debug,
+           ) or usage();
+
+($contextID and $contextKey) or usage();
+
+$debug or $debug = '0';
+
+my $conf = new Copilot::Config ('copilot-context-agent');
+
+my $jabberServer = $conf->{'CONTEXT_AGENT_JABBER_SERVER'};
+my $jabberDomain = $conf->{'CONTEXT_AGENT_JABBER_DOMAIN'};
+
+my $jabberID = $conf->{'CONTEXT_AGENT_JABBER_ID'};
+my $jabberPassword = $conf->{'CONTEXT_AGENT_JABBER_PASSWORD'};
+
+
+my $loggerConfig = $conf->{'CONTEXT_AGENT_LOGGER_CONFIG_FILE'};
+
+my $CMAddress = $conf->{'CM_JABBER_ADDRESS'};
+my $keyServerJID = $conf->{'KM_JABBER_ADDRESS'};
+
+my $publicKeysFile = $conf->{'PUBLIC_KEYS_FILE'};
+
+my $agentWorkDir = $conf->{'CONTEXT_AGENT_WORK_DIR'};
+
+my $securityEnabled = $conf->{'CONTEXT_AGENT_SECURE_MODE'};
+
+#my $contextID = shift;
+#$contextID or die "Context ID is not provided.\n"; 
+
+my %options = (
+                Component => 'ContextAgent',
+                LoggerConfig => $loggerConfig,
+                JabberID => $jabberID,
+                JabberPassword => $jabberPassword,
+                JabberDomain => $jabberDomain,
+                JabberServer => $jabberServer,
+                Debug => $debug,
+                ComponentOptions => {
+                                      CMAddress  => $CMAddress,
+                                      ContextID  => $contextID,  
+                                      ContextKey => $contextKey,
+                                      WorkDir    => $agentWorkDir,
+                                      Debug => $debug,
+                                    },
+              );   
+
+if (defined($securityEnabled) and $securityEnabled eq '1')
+{
+    # Append security options if the flag is set
+    %options = ( %options, SecurityModule => 'Consumer',
+                           SecurityOptions => {
+                                                KMAddress => $keyServerJID,
+                                                TicketGettingCredential => 'blah',
+                                                PublicKeysFile => $publicKeysFile,
+                                              }
+               );
+}
+
+my $agent = new Copilot::Container::XMPP ( \%options );
+POE::Kernel->run();
+
+sub usage
+{
+    print "\nUsage: $0 options
+where mandatory options are:
+        --id    ID of the context which needs to be applied
+        --key   Key to verify the context ownership\n\n".
+"Other options:
+        --debug Show debugging information
+        --help  Display this message
+";
+exit;
+
+}
+
+

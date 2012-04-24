@@ -1,0 +1,9 @@
+--- INTRODUCTION ---
+
+Contains Copilot Contextualization Agent perl package
+
+--- INSTALLATION ---
+
+perl Makefile.PL
+make
+make install

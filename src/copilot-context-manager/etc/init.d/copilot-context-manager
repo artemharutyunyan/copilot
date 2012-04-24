@@ -1,0 +1,108 @@
+#!/bin/bash
+#
+# copilot-context-manager start/stop copilot-context-manager
+#
+# chkconfig: 345 19 90
+# description: copilot-context-manager starting and stopping script
+# 
+
+
+# Source function library.
+. /etc/init.d/functions
+
+PID_FILE=/var/run/copilot-context-manager-geric.pid
+
+start() {
+	/usr/bin/copilot-context-manager >/var/log/copilot-context-manager.log_err 2>&1 &
+	CM_PID=$!
+	ps -p $CM_PID >/dev/null 2>&1
+
+	if [ $? -ne "0" ]; then
+		failure 
+		exit -1
+	else
+		OLDPID=`cat $PID_FILE 2>&1`
+		if [ $? -eq "0" ]; then
+			echo -n "Stopping Co-Pilot Context Manager (PID $OLDPID): "
+			kill -9 $OLDPID >/dev/null 2>&1			
+            if [ $? -ne "0" ]; then
+                failure
+                echo
+                echo "The Co-Pilot Context Manager was dead."			
+            else
+                success
+                echo        
+            fi
+		fi 		
+
+        echo -n $"Starting CernVM Co-Pilot Context Manager: "
+        success
+		echo $CM_PID > $PID_FILE
+    fi
+	echo  
+}
+
+stop() {
+	CM_PID=`cat $PID_FILE 2>/dev/null`
+	if [ $? -eq "0" ]; then
+    	echo -n "Stopping Co-Pilot Context Manager (PID $CM_PID):"
+	    rm -f $PID_FILE
+    	kill -9 $CM_PID >/dev/null	2>&1
+
+        if [ $? -ne "0" ]; then
+            failure
+            echo
+            echo "The Co-Pilot Context Manager was dead."			
+        else
+            success
+            echo
+        fi      
+    else
+        echo -n "Stopping running Co-Pilot Context Manager: " 
+        failure
+        echo
+        echo "PID file $PID_FILE does not exist."
+	fi		
+}
+
+status() {
+    echo -n "Checking status of Co-Pilot Context Manager: " 
+    CM_PID=`cat $PID_FILE 2>/dev/null`
+
+    if [ $? -eq "0" ]; then
+        ps -p $CM_PID >/dev/null 2>&1
+        if [ $? -eq "0" ]; then 
+            success
+        else 
+            echo -n " Dead."
+            failure
+        fi
+    echo
+    else
+    	failure
+        echo
+        echo "PID file $PID_FILE does not exist."
+    fi
+}
+
+case "$1" in
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    status)
+        status
+        ;;
+    restart)
+        stop
+        start
+        ;;
+    *)
+       echo "Usage:  {start|stop|status|restart]"
+        exit 1
+        ;;
+esac
+exit $?
+

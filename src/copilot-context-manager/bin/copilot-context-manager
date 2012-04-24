@@ -1,0 +1,79 @@
+#!/usr/bin/perl -w
+#
+=pod 
+
+=head1 DESCRIPTION Co-Pilot Context Manager 
+
+This script creates an instance of Copilot::Container::XMPP inside which copilot context manager runs 
+
+=cut
+
+
+use Copilot::Component::ContextManager;
+use Copilot::Container::XMPP;
+use Copilot::Config;
+
+use strict;
+use warnings;
+
+use Data::Dumper;
+use POE;
+
+my $component = 'ContextManager';
+my $config = new Copilot::Config ('copilot-context-manager');
+
+my $localhost = `hostname -f`;
+chomp $localhost;
+
+my $debug = '0';
+$debug = '1' if join(' ', @ARGV) =~ /-d/;
+
+my $redisServer  = $config->{'CM_REDIS_SERVER'} || $localhost;
+my $redisPort    = $config->{'CM_REDIS_PORT'}   || 6379; 
+
+my $jabberServer = $config->{'CM_JABBER_SERVER'};
+my $jabberDomain = $config->{'CM_JABBER_DOMAIN'};
+
+my $jabberID = $config->{'CM_JABBER_ID'};
+my $jabberPassword = $config->{'CM_JABBER_PASSWORD'};
+
+my $loggerConfig = $config->{'CM_LOGGER_CONFIG_FILE'};
+
+my $keyServerJID = $config->{'KM_JABBER_ADDRESS'};
+
+my $publicKeyFile = $config->{'PUBLIC_KEYS_FILE'}; 
+my $componentPublicKey= $config->{'CM_PUBLIC_KEY_FILE'}; 
+my $componentPrivateKey = $config->{'CM_PRIVATE_KEY_FILE'}; 
+
+my $securityEnabled = $config->{'CM_SECURE_MODE'};
+
+my %options = (
+                Component => $component,
+                LoggerConfig => $loggerConfig,
+                JabberID => $jabberID,
+                JabberPassword => $jabberPassword,
+                JabberDomain => $jabberDomain,
+                JabberServer => $jabberServer,
+                Debug => $debug,
+                ComponentOptions => {
+                                      RedisServer => $redisServer,
+                                      RedisPort => $redisPort,
+                                      Debug => $debug,
+                                    },
+              );  
+
+if (defined($securityEnabled) and $securityEnabled eq '1')
+{
+    # Append security options if the flag is set
+    %options = ( %options, SecurityModule => 'Provider',
+                           SecurityOptions => {
+                                                KMAddress => $keyServerJID,
+                                                PublicKeysFile => $publicKeyFile,
+                                                ComponentPublicKey => $componentPublicKey,
+                                                ComponentPrivateKey => $componentPrivateKey,
+                                              },
+               );
+} 
+
+my $jm = new Copilot::Container::XMPP (\%options); 
+POE::Kernel->run();
