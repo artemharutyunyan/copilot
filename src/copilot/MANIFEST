@@ -1,0 +1,18 @@
+lib/Copilot.pm
+lib/Copilot/Classad/Host.pm
+lib/Copilot/Component.pm
+lib/Copilot/Config.pm
+lib/Copilot/Container.pm
+lib/Copilot/Container/TCP.pm
+lib/Copilot/Container/XMPP.pm
+lib/Copilot/GUID.pm
+lib/Copilot/Plugin.pm
+lib/Copilot/Plugin/Heartbeat.pm
+lib/Copilot/Plugin/SystemMonitor.pm
+lib/Copilot/Security.pm
+lib/Copilot/Security/Consumer.pm
+lib/Copilot/Security/Provider.pm
+lib/Copilot/Util.pm
+Makefile.PL
+MANIFEST			This list of files
+README
