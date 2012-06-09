@@ -5,7 +5,7 @@
 
 -include("ejabberd.hrl").
 -include("jlib.hrl").
--export([start/2, stop/1, on_presence/4]).
+-export([start/2, stop/1, on_presence/4, lookup_ip/1, ucfirst/1, report_event/2, report_event/4]).
 
 start(Host, _Opt) ->
   ?INFO_MSG("** init copilot plugin", []),
