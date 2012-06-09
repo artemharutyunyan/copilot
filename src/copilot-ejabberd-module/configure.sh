@@ -22,7 +22,7 @@ compile:
 	erlc -I $EJD_DIR/include -o ebin src/*.erl
 
 install:
-	cp -R ebin/*.beam $EJD_DIR/include
+	cp -R ebin/*.beam $EJD_DIR/ebin
 
 build-deps:
 	\$(REBAR) get-deps \$(REBAR_FLAGS)

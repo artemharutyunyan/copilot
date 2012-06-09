@@ -27,7 +27,7 @@ stop(Host) ->
   ok.
 
 on_presence(User, Server, Resource, _Packet) ->
-  IPAddress = ejabberd_sm:get_user_ip(User, Server, Resource),
+  {IPAddress, _} = ejabberd_sm:get_user_ip(User, Server, Resource),
   Data = lookup_ip(IPAddress),
   ?DEBUG("User with the IP address ~p sent a presence from (~p, ~p)", [IPAddress,
                                                                        lists:keyfind(latitude, 1, Data),
@@ -41,8 +41,8 @@ ucfirst([]) -> [];
 ucfirst([First|Rest]) -> string:to_upper(lists:nth(1, io_lib:format("~c", [First]))) ++ Rest.
 
 lookup_ip(IPAddress) ->
-  {ok, Values} = egeoip:lookup(IPAddress),
-  [_|Data] = erlang:tuple_to_list(Values),
+  ?DEBUG("Decoding IP address ~p", [IPAddress]),
+  [_|Data] = erlang:tuple_to_list(element(2, egeoip:lookup(IPAddress))),
   lists:zip(egeoip:record_fields(), Data).
 
 % Sends an message as mod_copilot@localhost and
