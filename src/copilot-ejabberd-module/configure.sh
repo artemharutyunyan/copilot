@@ -7,6 +7,11 @@ if [ ! -e "$EJD_DIR" ]; then
 	EJD_DIR=/lib/ejabberd
 fi
 
+echo " - ejabberd: $EJD_DIR"
+echo " - Erlang: $ERL_DIR"
+echo
+
+echo " * Generating Makefile..."
 cat > Makefile << EOF
 REBAR ?= \$(shell which rebar 2>/dev/null || which ./rebar)
 REBAR_FLAGS ?=
@@ -16,19 +21,19 @@ all: compile
 compile:
 	\$(REBAR) compile \$(REBAR_FLAGS)
 
-install: compile
+install: install-deps compile
+	cp -R ebin/*.beam $EJD_DIR/include
+
+build-deps:
+	\$(REBAR) get-deps \$(REBAR_FLAGS)
+	cd deps/mongodb && make
+
+install-deps: build-deps
 	mkdir $ERL_DIR/egeoip-master
 	cp -R deps/egeoip/{ebin,include,priv} $ERL_DIR/egeoip-master
 
 	mkdir $ERL_DIR/mongodb-master
 	cp -R deps/mongodb/{ebin,deps,include} $ERL_DIR/mongodb-master
-
-	cp -R ebin/*.beam $EJD_DIR/include
-
-build-deps:
-	\$(REBAR) get-deps \$(REBAR_FLAGS)
-	cd deps/egeoip && make
-	cd deps/mongodb && make
 
 doc:
 	\$(REBAR) doc \$(REBAR_FLAGS)
@@ -52,6 +57,7 @@ dialyzer:
 	\$(REBAR) dialyze \$(REBAR_FLAGS)
 EOF
 
+echo " * Generating rebar.config..."
 cat > rebar.config << EOF
 {deps, [
         {mongodb, ".*", {git, "http://github.com/mongodb/mongodb-erlang.git", "HEAD"}},
@@ -64,3 +70,5 @@ cat > rebar.config << EOF
            ]}.
 {clean_files, ["ebin/*.beam", "erl_crash.dump"]}.
 EOF
+
+echo " * Done. Run 'make' to install the module."
