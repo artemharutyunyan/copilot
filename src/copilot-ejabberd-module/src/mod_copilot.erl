@@ -1,16 +1,17 @@
 -module(mod_copilot).
 -behavior(gen_mod).
 -define(PROCNAME, mod_copilot).
+-define(JID, "mod_copilot@localhost").
 
 -include("ejabberd.hrl").
 -include("jlib.hrl").
--export([start/2, stop/1, on_presence/4, report_event/2, report_event/4]).
+-export([start/2, stop/1, on_presence/4]).
 
 start(Host, _Opt) ->
   ?INFO_MSG("** init copilot plugin", []),
 
   application:start(mongodb),
-  egeoip:start(code:lib_dir(egeoip) ++ "/priv/GeoLiteCity.dat"),
+  application:start(egeoip),
 
   ejabberd_hooks:add(set_presence_hook, Host, ?MODULE, on_presence, 50),
   ok.
@@ -21,16 +22,17 @@ stop(Host) ->
   ejabberd_hooks:delete(set_presence_hook, Host, ?MODULE, on_presence),
 
   application:stop(mongodb),
-  egeoip:stop(),
+  application:stop(),
 
   ok.
 
 on_presence(User, Server, Resource, _Packet) ->
   IPAddress = ejabberd_sm:get_user_ip(User, Server, Resource),
   Data = lookup_ip(IPAddress),
-  ?DEBUG("User with the IP address ~p sent a presence from (~p, ~p)", [IPAddress, lists:keyfind(latitude), lists:keyfind(longitude)]),
+  ?DEBUG("User with the IP address ~p sent a presence from (~p, ~p)", [IPAddress,
+                                                                       lists:keyfind(latitude, 1, Data),
+                                                                       lists:keyfind(longitude, 1, Data)]),
   report_event(Server, "connect"),
-
   ok.
 
 %%% Utilities %%%
@@ -39,14 +41,14 @@ ucfirst([]) -> [];
 ucfirst([First|Rest]) -> string:to_upper(lists:nth(1, io_lib:format("~c", [First]))) ++ Rest.
 
 lookup_ip(IPAddress) ->
-  LongIPAddr = egeoip:ip2long(IPAddress),
-  [_|Data] = erlang:tuple_to_list(element(2, egeoip:lookup(IPAddress))),
+  {ok, Values} = egeoip:lookup(IPAddress),
+  [_|Data] = erlang:tuple_to_list(element(2, Values)),
   lists:zip(egeoip:record_fields(), Data).
 
 % Sends an message as mod_copilot@localhost and
 % performs base64-encoding of the attributes
 route_to_copilot_component(To, Xml) ->
-  ejabberd_router:route("mod_copilot@localhost", To, Xml).
+  ejabberd_router:route(?JID, To, Xml).
 
 route_to_copilot_component(From, To, Xml) ->
   ejabberd_router:route(From, To, hash_xml_body(Xml)).
@@ -73,7 +75,7 @@ prepare_event_command(Event, Type, Value) ->
 
 report_event(Server, Event) ->
   To = gen_mod:get_module_opt(Server, ?MODULE, monitor_jid, "mon@localhost"),
-  XmlBody = {xmlelement, "message", [{"from", "mod_copilot@localhost"},
+  XmlBody = {xmlelement, "message", [{"from", ?JID},
                                      {"to", To},
                                      {"noack", "1"}],
                                      [{xmlelement, "info", prepare_event_command(Event), []}]},
@@ -81,7 +83,7 @@ report_event(Server, Event) ->
   ok.
 report_event(Server, Event, Value, Type) ->
   To = gen_mod:get_module_opt(Server, ?MODULE, monitor_jid, "mon@localhost"),
-  XmlBody = {xmlelement, "message", [{"from", "mod_copilot@localhost"},
+  XmlBody = {xmlelement, "message", [{"from", ?JID},
                                      {"to", To},
                                      {"noack", "1"},
                                     [{xmlelement, "info", prepare_event_command(Event, Value, Type), []}]]},

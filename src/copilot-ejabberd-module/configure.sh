@@ -19,9 +19,9 @@ REBAR_FLAGS ?=
 all: build-deps compile
 
 compile:
-	\$(REBAR) compile \$(REBAR_FLAGS)
+	erlc -I $EJD_DIR -o ebin src/*.erl
 
-install: compile
+install:
 	cp -R ebin/*.beam $EJD_DIR/include
 
 build-deps:
@@ -36,26 +36,8 @@ install-deps: build-deps
 	mkdir $ERL_DIR/mongodb-master
 	cp -R deps/mongodb/{ebin,deps,include} $ERL_DIR/mongodb-master
 
-doc:
-	\$(REBAR) doc \$(REBAR_FLAGS)
-
-test: compile
-	\$(REBAR) eunit \$(REBAR_FLAGS)
-
 clean:
 	\$(REBAR) clean \$(REBAR_FLAGS)
-
-clean_plt:
-	@rm -f _test/dialyzer_plt
-
-build_plt: build-plt
-
-build-plt:
-	@ [ -d _test ] || mkdir _test
-	\$(REBAR) build-plt \$(REBAR_FLAGS)
-
-dialyzer:
-	\$(REBAR) dialyze \$(REBAR_FLAGS)
 EOF
 
 echo " * Generating rebar.config..."
@@ -67,8 +49,7 @@ cat > rebar.config << EOF
 {lib_dirs, ["deps"]}.
 {erl_opts, [debug_info,
             fail_on_warning,
-            {i, "$EJD_DIR/include"},
-            {i, "$ERL_DIR/egeoip-master/include"}
+            {i, "$EJD_DIR/include"}
            ]}.
 {clean_files, ["ebin/*.beam", "erl_crash.dump"]}.
 EOF
