@@ -4,8 +4,6 @@
 
 -include("ejabberd.hrl").
 -include("jlib.hrl").
--include("egeoip/include/egeoip.hrl").
-
 -export([start/2, stop/1, on_presence/4, report_event/2, report_event/4]).
 
 start(Host, _Opt) ->
@@ -29,8 +27,8 @@ stop(Host) ->
 
 on_presence(User, Server, Resource, _Packet) ->
   IPAddress = ejabberd_sm:get_user_ip(User, Server, Resource),
-  {ok, #egeoip{longitude=Lg, latitude=Lt}} = egeoip:lookup(IPAddress),
-  ?DEBUG("User with the IP address ~p sent a presence from (~p, ~p)", [IPAddress, Lg, Lt]),
+  Data = lookup_ip(IPAddress),
+  ?DEBUG("User with the IP address ~p sent a presence from (~p, ~p)", [IPAddress, lists:keyfind(latitude), lists:keyfind(longitude)]),
   report_event(Server, "connect"),
 
   ok.

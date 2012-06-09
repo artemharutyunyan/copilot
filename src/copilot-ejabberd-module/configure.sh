@@ -16,17 +16,18 @@ cat > Makefile << EOF
 REBAR ?= \$(shell which rebar 2>/dev/null || which ./rebar)
 REBAR_FLAGS ?=
 
-all: compile
+all: build-deps compile
 
 compile:
 	\$(REBAR) compile \$(REBAR_FLAGS)
 
-install: install-deps compile
+install: compile
 	cp -R ebin/*.beam $EJD_DIR/include
 
 build-deps:
 	\$(REBAR) get-deps \$(REBAR_FLAGS)
-	cd deps/mongodb && make
+	cd deps/egeoip && make
+	cd deps/mongodb && ./rebar get-deps && make
 
 install-deps: build-deps
 	mkdir $ERL_DIR/egeoip-master
@@ -66,7 +67,8 @@ cat > rebar.config << EOF
 {lib_dirs, ["deps"]}.
 {erl_opts, [debug_info,
             fail_on_warning,
-            {i, "$EJD_DIR/include"}
+            {i, "$EJD_DIR/include"},
+            {i, "$ERL_DIR/egeoip-master/include"}
            ]}.
 {clean_files, ["ebin/*.beam", "erl_crash.dump"]}.
 EOF
