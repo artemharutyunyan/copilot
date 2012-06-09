@@ -42,7 +42,7 @@ ucfirst([First|Rest]) -> string:to_upper(lists:nth(1, io_lib:format("~c", [First
 
 lookup_ip(IPAddress) ->
   {ok, Values} = egeoip:lookup(IPAddress),
-  [_|Data] = erlang:tuple_to_list(element(2, Values)),
+  [_|Data] = erlang:tuple_to_list(Values),
   lists:zip(egeoip:record_fields(), Data).
 
 % Sends an message as mod_copilot@localhost and
