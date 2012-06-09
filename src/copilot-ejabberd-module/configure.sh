@@ -19,7 +19,7 @@ REBAR_FLAGS ?=
 all: build-deps compile
 
 compile:
-	erlc -I $EJD_DIR -o ebin src/*.erl
+	erlc -I $EJD_DIR/include -o ebin src/*.erl
 
 install:
 	cp -R ebin/*.beam $EJD_DIR/include
