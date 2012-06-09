@@ -17,13 +17,18 @@ compile:
 	\$(REBAR) compile \$(REBAR_FLAGS)
 
 install: compile
-	mkdir $(ERL_DIR)/egeoip-master
-	cp -R deps/egeoip/{ebin,include,priv} $(ERL_DIR)/egeoip-master
+	mkdir $ERL_DIR/egeoip-master
+	cp -R deps/egeoip/{ebin,include,priv} $ERL_DIR/egeoip-master
 
-	mkdir $(ERL_DIR)/mongodb-master
-	cp -R deps/mongodb/{ebin,deps,include} $(ERL_DIR)/mongodb-master
+	mkdir $ERL_DIR/mongodb-master
+	cp -R deps/mongodb/{ebin,deps,include} $ERL_DIR/mongodb-master
 
-	cp -R ebin/*.beam $(EJD_DIR)/include
+	cp -R ebin/*.beam $EJD_DIR/include
+
+build-deps:
+	\$(REBAR) get-deps \$(REBAR_FLAGS)
+	cd deps/egeoip && make
+	cd deps/mongodb && make
 
 doc:
 	\$(REBAR) doc \$(REBAR_FLAGS)
@@ -47,7 +52,7 @@ dialyzer:
 	\$(REBAR) dialyze \$(REBAR_FLAGS)
 EOF
 
-cat rebar.config << EOF
+cat > rebar.config << EOF
 {deps, [
         {mongodb, ".*", {git, "http://github.com/mongodb/mongodb-erlang.git", "HEAD"}},
         {egeoip, ".*", {git, "http://github.com/mochi/egeoip.git", "HEAD"}}
@@ -55,7 +60,7 @@ cat rebar.config << EOF
 {lib_dirs, ["deps"]}.
 {erl_opts, [debug_info,
             fail_on_warning,
-            {i, "$(EJD_DIR)/include"}
+            {i, "$EJD_DIR/include"}
            ]}.
 {clean_files, ["ebin/*.beam", "erl_crash.dump"]}.
 EOF
