@@ -58,8 +58,8 @@ hash_xml_body({xmlelement, Tag, Attributes, ChildNodes}) ->
    lists:map(fun hash_xml_body/1, ChildNodes)}.
 
 % Performs base64-encoding on tuple's second element
-hash_xml_attribute({"To", _} = Attr) -> Attr;
-hash_xml_attribute({"From", _} = Attr) -> Attr;
+hash_xml_attribute({"to", _} = Attr) -> Attr;
+hash_xml_attribute({"from", _} = Attr) -> Attr;
 hash_xml_attribute({Attr, Value}) -> {Attr, "_BASE64:" ++  base64:encode_to_string(Value)}.
 
 % Prepares the reportEvent command
@@ -73,7 +73,7 @@ prepare_event_command(Event, Type, Value) ->
 
 report_event(Server, Event) ->
   To = gen_mod:get_module_opt(Server, ?MODULE, monitor_jid, "mon@localhost"),
-  XmlBody = {xmlelement, "message", [{"from", From},
+  XmlBody = {xmlelement, "message", [{"from", "mod_copilot@localhost"},
                                      {"to", To},
                                      {"noack", "1"}],
                                      [{xmlelement, "info", prepare_event_command(Event), []}]},
@@ -81,7 +81,7 @@ report_event(Server, Event) ->
   ok.
 report_event(Server, Event, Value, Type) ->
   To = gen_mod:get_module_opt(Server, ?MODULE, monitor_jid, "mon@localhost"),
-  XmlBody = {xmlelement, "message", [{"from", From},
+  XmlBody = {xmlelement, "message", [{"from", "mod_copilot@localhost"},
                                      {"to", To},
                                      {"noack", "1"},
                                     [{xmlelement, "info", prepare_event_command(Event, Value, Type), []}]]},
