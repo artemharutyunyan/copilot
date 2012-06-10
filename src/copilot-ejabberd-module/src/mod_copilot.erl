@@ -10,7 +10,8 @@
 % Required by gen_mod
 -export([start/2, stop/1, on_presence/4]).
 % Required by gen_server
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/2]).
+-export([start_link/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 % Utilites
 -export([lookup_ip/1, ucfirst/1, report_event/2, report_event/4]).
 
