@@ -87,8 +87,10 @@ handle_cast({connect, JID, IPAddress}, State) ->
 handle_cast({disconnect, {User, Host, Resource} = JID, IPAddress}, State) ->
   mongo_do(State, copilot, fun () ->
     JIDString = User ++ "@" ++ Host ++ "/" ++ Resource,
-    Cursor = mongo:find(connections, {jid, JIDString,
-                                      active, true}),
+    Cursor = mongo:find(connections, {user, User,
+                                      host, Host,
+                                      resource, Resource
+                                      connected, true}),
     NewDoc = doc_close_connection(mongo:next(Cursor), JID, IPAddress),
     mongo:close_cursor(Cursor),
     mongo:save(connections, NewDoc)
@@ -149,7 +151,9 @@ doc_create_connection({User, Host, Resource}, IPAddress) ->
   Lng = proplists:get_value(longitude, GeoData),
   Lat = proplists:get_value(latitude, GeoData),
 
-  {jid, User ++ "@" ++ Host ++ "/" ++ Resource,
+  {user, User,
+   host, Host,
+   resource, Resource,
    loc, [Lng, Lat],
    connected_at, bson:timenow(),
    connected, true}.
@@ -157,16 +161,18 @@ doc_create_connection({User, Host, Resource}, IPAddress) ->
 %@doc Marks connection as closed and appends data from agent's JID
 doc_close_connection({ok, {}}, JID, IPAddress) ->
   % There isn't a connection document so we have to create it first
-  doc_close_connection(doc_create_connection(JID, IPAddress));
-doc_close_connection({ok, {Doc}}, {User, _Host, _Resource} = JID, IPAddress) ->
-  % Converts a list of tuples ([{x, Y}]) into a list of lists ([[x, Y]]) and flattens it ([x, Y]) for BSON
+  doc_close_connection(doc_create_connection(JID, IPAddress), JID, IPAddress);
+doc_close_connection({ok, {Doc}}, {User, _Host, _Resource}, _IPAddress) ->
+  % Converts a list of tuples ([{x, Val}]) into a list of lists ([[x, Val]]) and flattens it ([x, Val]) for BSON
   AgentData = erlang:list_to_tuple(list:flatmap(fun erlang:tuple_to_list/1, parse_component_jid(User))),
-  NewData = {disconnected_at, bson:timenow(),
+  NewData = {connected, false,
+             disconnected_at, bson:timenow(),
              agent_data, AgentData},
-  bson:append(bson:update(connected, false, Doc), NewData);
+  %NewDoc = bson:update(agent_data, NewData, bson:update(connected, false, Doc))
+  bson:merge(NewData, Doc);
 doc_close_connection({failure, Failure}, _, _) ->
   % Silently fails
-  ?DEBUG("MongoDB failed in doc_close_connection ~p", [Failure]),
+  ?DEBUG("MongoDB failed in doc_close_connection/3: ~p", [Failure]),
   failure.
 
 %@doc Sends an message as mod_copilot@localhost and performs base64-encoding of the attributes
