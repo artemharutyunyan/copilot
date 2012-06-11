@@ -146,9 +146,11 @@ lookup_ip(IPAddress) ->
   lists:zip(egeoip:record_fields(), Data).
 
 %@doc Parses JID (username part) of an agent (ex.: agent_s-10829_1_7_18225d4f-e3f7-4c18-9a18-d6c06992d272_-g)
-parse_component_jid(["agent"|_] = Props) -> lists:zip([component, version, cores, jobs, uuid, ukn], lists:map(fun bson:utf8/1, Props));
-parse_component_jid(User) -> parse_component_jid(string:tokens(User, "_"));
-parse_component_jid([Component|_]) -> [{component, Component}].
+parse_component_jid(User) ->
+  case string:tokens(User, "_") of
+    ["agent"|_] = Props -> lists:zip([component, version, cores, jobs, uuid, ukn], lists:map(fun bson:utf8/1, Props));
+    [Component|_] -> [{component, Component}]
+  end.
 
 %@doc Creates a MonoDB document describing the connection
 doc_create_connection({User, Host, Resource}, IPAddress) ->
