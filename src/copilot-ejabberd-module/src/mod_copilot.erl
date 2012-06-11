@@ -51,7 +51,7 @@ on_unset_presence(User, Server, Resource, _Status) ->
   handle_presence(disconnect, {User, Server, Resource}, null).
 
 %@doc Handles presence stanzas sent by users
-handle_presence(UserState, {_User, Server, _Resource}, IPAddress) ->
+handle_presence(UserState, {_User, Server, _Resource} = JID, IPAddress) ->
   % Processes the stanza in the gen_server
   gen_server:cast(?MODULE, {UserState, JID, IPAddress}),
   report_event(Server, atom_to_list(UserState)),
@@ -96,7 +96,7 @@ handle_cast({disconnect, {User, Host, Resource} = JID, _IPAddress}, State) ->
         ?DEBUG("Failed to mark connection as closed: ~p", [Reason]),
         failure
     end,
-    mongo:close_cursor(Cursor),
+    mongo:close_cursor(Cursor)
   end);
 handle_cast(_Msg, State) ->
   {noreply, State}.
