@@ -49,12 +49,13 @@ on_unset_presence(User, Server, Resource, _Status) -> handle_presence(disconnect
 
 %@doc Handles presence stanzas sent by users
 handle_presence(UserState, {User, Server, Resource} = JID) ->
-  {IPAddress, _} = ejabberd:get_user_ip(User, Server, Resource),
+  {IPAddress, _} = ejabberd_sm:get_user_ip(User, Server, Resource),
   ?DEBUG("User ~p (~p) is ~p", [JID, IPAddress, UserState]),
 
   % Passes over the processing into a new process
+  % Strings are converted to utf8 because of MongoDB driver
   gen_server:cast(?MODULE, {UserState, JID, IPAddress}),
-  report_event(Server, UserState),
+  report_event(Server, atom_to_list(UserState)),
   ok.
 
 %%% gen_server %%%
@@ -86,10 +87,9 @@ handle_cast({connect, JID, IPAddress}, State) ->
   mongo_do(State, copilot, fun () -> mongo:save(connections, Doc) end);
 handle_cast({disconnect, {User, Host, Resource} = JID, IPAddress}, State) ->
   mongo_do(State, copilot, fun () ->
-    JIDString = User ++ "@" ++ Host ++ "/" ++ Resource,
-    Cursor = mongo:find(connections, {user, User,
-                                      host, Host,
-                                      resource, Resource
+    Cursor = mongo:find(connections, {user, utf8(User),
+                                      host, utf8(Host),
+                                      resource, utf8(Resource),
                                       connected, true}),
     NewDoc = doc_close_connection(mongo:next(Cursor), JID, IPAddress),
     mongo:close_cursor(Cursor),
@@ -143,7 +143,7 @@ lookup_ip(IPAddress) ->
 
 %@doc Parses JID (username part) of an agent (ex.: agent_s-10829_1_7_18225d4f-e3f7-4c18-9a18-d6c06992d272_-g)
 parse_component_jid(User) ->
-  lists:zip([component, version, cores, jobs, uuid, ukn], strings:tokens(User, "_")).
+  lists:zip([component, version, cores, jobs, uuid, ukn], lists:map(fun utf8/1, strings:tokens(User, "_"))).
 
 %@doc Creates a MonoDB document describing the connection
 doc_create_connection({User, Host, Resource}, IPAddress) ->
@@ -151,12 +151,12 @@ doc_create_connection({User, Host, Resource}, IPAddress) ->
   Lng = proplists:get_value(longitude, GeoData),
   Lat = proplists:get_value(latitude, GeoData),
 
-  {user, User,
-   host, Host,
-   resource, Resource,
-   loc, [Lng, Lat],
+  {user,         utf8(User),
+   host,         utf8(Host),
+   resource,     utf8(Resource),
+   loc,          [Lng, Lat],
    connected_at, bson:timenow(),
-   connected, true}.
+   connected,    true}.
 
 %@doc Marks connection as closed and appends data from agent's JID
 doc_close_connection({ok, {}}, JID, IPAddress) ->
