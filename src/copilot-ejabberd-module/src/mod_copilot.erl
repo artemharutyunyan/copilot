@@ -90,10 +90,10 @@ handle_cast({disconnect, {User, Host, Resource} = JID, _IPAddress}, State) ->
                                       host, bson:utf8(Host),
                                       resource, bson:utf8(Resource),
                                       connected, true}),
-    case doc_close_connection(mongo:next(Cursor), JID, null) of
+    case doc_close_connection(mongo:next(Cursor), JID) of
       {ok, NewDoc} -> mongo:save(connections, NewDoc);
       {failure, Reason} ->
-        ?DEBUG("Failed to mark connection as closed: ~p", [Reason]),
+        ?DEBUG("Failed to mark connection from ~p as closed: ~p", [JID, Reason]),
         failure
     end,
     mongo:close_cursor(Cursor)
@@ -126,7 +126,7 @@ mongo_reconnect(State) ->
     Value -> Value
   end,
   {ok, NewConn} = mongo:connect(Host),
-  proplists:delete(conn, State) ++ [{conn, NewConn}].
+  proplists:delete(mongo, State) ++ [{mongo, NewConn}].
 
 %@doc Wrapper around mongo:do/5 which is too error-sensitive
 mongo_do(State, Table, Op) ->
@@ -146,8 +146,9 @@ lookup_ip(IPAddress) ->
   lists:zip(egeoip:record_fields(), Data).
 
 %@doc Parses JID (username part) of an agent (ex.: agent_s-10829_1_7_18225d4f-e3f7-4c18-9a18-d6c06992d272_-g)
-parse_component_jid(User) ->
-  lists:zip([component, version, cores, jobs, uuid, ukn], lists:map(fun bson:utf8/1, strings:tokens(User, "_"))).
+parse_component_jid(["agent"|_] = Props) -> lists:zip([component, version, cores, jobs, uuid, ukn], lists:map(fun bson:utf8/1, Props));
+parse_component_jid(User) -> parse_component_jid(string:tokens(User, "_"));
+parse_component_jid([Component|_]) -> [{component, Component}].
 
 %@doc Creates a MonoDB document describing the connection
 doc_create_connection({User, Host, Resource}, IPAddress) ->
@@ -162,16 +163,16 @@ doc_create_connection({User, Host, Resource}, IPAddress) ->
    connected_at, bson:timenow(),
    connected,    true}.
 
-%@doc Marks connection as closed and appends data from agent's JID
-doc_close_connection({failure, Reason}, _, _) -> {failure, Reason};
-doc_close_connection({ok, {}}, _, _) -> {failure, nodoc};
-doc_close_connection({ok, {Doc}}, {User, _Host, _Resource}, _IPAddress) ->
+%@doc Marks connection as closed and appends data extracted from agent's JID
+doc_close_connection({}, _) -> {failure, nodoc};
+doc_close_connection({Doc}, {User, _Host, _Resource}) ->
   % Converts a list of tuples ([{x, Val}]) into a list of lists ([[x, Val]]) and flattens it ([x, Val]) for BSON
   AgentData = erlang:list_to_tuple(list:flatmap(fun erlang:tuple_to_list/1, parse_component_jid(User))),
   NewData = {connected, false,
              disconnected_at, bson:timenow(),
              agent_data, AgentData},
-  {ok, bson:merge(NewData, Doc)}.
+  NewDoc = bson:merge(NewData, Doc),
+  {ok, NewDoc}.
 
 %@doc Sends an message as mod_copilot@localhost and performs base64-encoding of the attributes
 route_to_copilot_component(To, Xml) -> route_to_copilot_component(?JID, To, Xml).
