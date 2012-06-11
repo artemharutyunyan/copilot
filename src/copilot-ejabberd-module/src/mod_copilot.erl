@@ -44,17 +44,17 @@ stop(Host) ->
 
   ok.
 
-on_set_presence(User, Server, Resource, _Packet) ->
-  {IPAddress, _} = ejabberd_sm:get_user_ip(User, Server, Resource),
-  handle_presence(connect, {User, Server, Resource}, IPAddress).
-on_unset_presence(User, Server, Resource, _Status) ->
-  handle_presence(disconnect, {User, Server, Resource}, null).
+on_set_presence(User, Host, Resource, _Packet) ->
+  {IPAddress, _} = ejabberd_sm:get_user_ip(User, Host, Resource),
+  handle_presence(connect, {User, Host, Resource}, IPAddress).
+on_unset_presence(User, Host, Resource, _Status) ->
+  handle_presence(disconnect, {User, Host, Resource}, null).
 
 %@doc Handles presence stanzas sent by users
-handle_presence(UserState, {_User, Server, _Resource} = JID, IPAddress) ->
+handle_presence(UserState, {_User, Host, _Resource} = JID, IPAddress) ->
   % Processes the stanza in the gen_server
   gen_server:cast(?MODULE, {UserState, JID, IPAddress}),
-  report_event(Server, atom_to_list(UserState)),
+  report_event(Host, atom_to_list(UserState)),
   ok.
 
 %%% gen_server %%%
@@ -149,7 +149,7 @@ lookup_ip(IPAddress) ->
 parse_component_jid(User) ->
   case string:tokens(User, "_") of
     ["agent"|_] = Props -> lists:zip([component, version, cores, jobs, uuid, ukn], lists:map(fun bson:utf8/1, Props));
-    [Component|_] -> [{component, Component}]
+    [Component|_] -> [{component, bson:utf8(Component)}]
   end.
 
 %@doc Creates a MonoDB document describing the connection
@@ -169,7 +169,7 @@ doc_create_connection({User, Host, Resource}, IPAddress) ->
 doc_close_connection({}, _) -> {failure, nodoc};
 doc_close_connection({Doc}, {User, _Host, _Resource}) ->
   % Converts a list of tuples ([{x, Val}]) into a list of lists ([[x, Val]]) and flattens it ([x, Val]) for BSON
-  AgentData = erlang:list_to_tuple(list:flatmap(fun erlang:tuple_to_list/1, parse_component_jid(User))),
+  AgentData = erlang:list_to_tuple(lists:flatmap(fun erlang:tuple_to_list/1, parse_component_jid(User))),
   NewData = {connected, false,
              disconnected_at, bson:timenow(),
              agent_data, AgentData},
@@ -191,31 +191,33 @@ hash_xml_body({xmlelement, Tag, Attributes, ChildNodes}) ->
 hash_xml_attribute({"to", _} = Attr) -> Attr;
 hash_xml_attribute({"from", _} = Attr) -> Attr;
 hash_xml_attribute({"noack", _} = Attr) -> Attr;
-hash_xml_attribute({Attr, Value}) -> {Attr, "_BASE64:" ++  base64:encode_to_string(Value)}.
+hash_xml_attribute({Attr, Value}) -> {Attr, "_BASE64:" ++ base64:encode_to_string(Value)}.
 
 %@doc Prepares the reportEvent command
-prepare_event_command(Event) -> prepare_event_command(Event, "").
-prepare_event_command(Event, Type) -> lists:keydelete(Type, 1, prepare_event_command(Event, Type, "")).
-prepare_event_command(Event, Type, Value) ->
+prepare_event_command(Event, Host) -> prepare_event_command(Event, "", Host).
+prepare_event_command(Event, Type, Host) -> proplists:delete(Type, prepare_event_command(Event, Type, "", Host)).
+prepare_event_command(Event, Type, Value, Host) ->
   [{"command", "reportEvent" ++ ucfirst(Type)},
-   {"component", "copilot.ejabberd"},
+   {"component", "copilot.ejabberd." ++ Host},
    {"event", Event},
    {Type, Value}].
 
 %@doc Sends a reportEvent command to the Monitor
-report_event(Server, Event) ->
-  To = gen_mod:get_module_opt(Server, ?MODULE, monitor_jid, "mon@localhost"),
+report_event(Host, Event) ->
+  To = gen_mod:get_module_opt(Host, ?MODULE, monitor_jid, "mon@localhost"),
   XmlBody = {xmlelement, "message", [{"from", ?JID},
                                      {"to", To},
                                      {"noack", "1"}],
-                                     [{xmlelement, "info", prepare_event_command(Event), []}]},
+                                     [{xmlelement, "info", prepare_event_command(Event, Host), []}]},
   route_to_copilot_component(To, XmlBody),
   ok.
-report_event(Server, Event, Value, Type) ->
-  To = gen_mod:get_module_opt(Server, ?MODULE, monitor_jid, "mon@localhost"),
+
+%@doc Sends a reportEvent{Type} command to the Monitor
+report_event(Host, Event, Value, Type) ->
+  To = gen_mod:get_module_opt(Host, ?MODULE, monitor_jid, "mon@localhost"),
   XmlBody = {xmlelement, "message", [{"from", ?JID},
                                      {"to", To},
                                      {"noack", "1"},
-                                    [{xmlelement, "info", prepare_event_command(Event, Value, Type), []}]]},
+                                    [{xmlelement, "info", prepare_event_command(Event, Value, Type, Host), []}]]},
   route_to_copilot_component(To, XmlBody),
   ok.
