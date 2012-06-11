@@ -50,7 +50,7 @@ on_unset_presence(User, Server, Resource, _Status) -> handle_presence(disconnect
 %@doc Handles presence stanzas sent by users
 handle_presence(UserState, {User, Server, Resource} = JID) ->
   {IPAddress, _} = ejabberd:get_user_ip(User, Server, Resource),
-  ?DEBUG("User ~p (~p) is ~p", [JID, IPAddress, State]),
+  ?DEBUG("User ~p (~p) is ~p", [JID, IPAddress, UserState]),
 
   % Passes over the processing into a new process
   gen_server:cast(?MODULE, {UserState, JID, IPAddress}),
@@ -118,7 +118,7 @@ mongo_reconnect(State) ->
   Opts = proplists:get_value(opts, State),
   Host = case proplists:get_value(mongodb, Opts) of
     undefined -> {localhost, 27017};
-    Value -> Value;
+    Value -> Value
   end,
   {ok, NewConn} = mongo:connect(Host),
   proplists:delete(conn, State) ++ [{conn, NewConn}].
@@ -127,7 +127,7 @@ mongo_reconnect(State) ->
 mongo_do(State, Table, Op) ->
   Conn = proplists:get_value(mongo, State),
   case mongo:do(safe, master, Conn, Table, Op) of
-    {ok, _} -> {noreply, State},
+    {ok, _} -> {noreply, State};
     {failure, Failure} ->
       ?DEBUG("MongoDB operation failed with: ~p", [Failure]),
       {noreply, mongo_reconnect(State)}
@@ -144,14 +144,15 @@ parse_component_jid(User) ->
   lists:zip([component, version, cores, jobs, uuid, ukn], strings:tokens(User, "_")).
 
 %@doc Creates a MonoDB document describing the connection
-doc_create_connection({User, Host, Resource} = JID, IPAddress) ->
+doc_create_connection({User, Host, Resource}, IPAddress) ->
   GeoData = lookup_ip(IPAddress),
-  X = proplists:get_value(longitude, GeoData),
-  Y = proplists:get_value(latitude, GeoData),
+  Lng = proplists:get_value(longitude, GeoData),
+  Lat = proplists:get_value(latitude, GeoData),
 
   {jid, User ++ "@" ++ Host ++ "/" ++ Resource,
-   loc, [X, Y],
-   active, true}
+   loc, [Lng, Lat],
+   connected_at, bson:timenow(),
+   connected, true}.
 
 %@doc Marks connection as closed and appends data from agent's JID
 doc_close_connection({ok, {}}, JID, IPAddress) ->
@@ -162,10 +163,10 @@ doc_close_connection({ok, {Doc}}, {User, _Host, _Resource} = JID, IPAddress) ->
   AgentData = erlang:list_to_tuple(list:flatmap(fun erlang:tuple_to_list/1, parse_component_jid(User))),
   NewData = {disconnected_at, bson:timenow(),
              agent_data, AgentData},
-  % Updates the active flag and appends new data
-  bson:append(bson:update(active, false, Doc), NewData);
-doc_close_connection({failure, _}, _, _, _) ->
+  bson:append(bson:update(connected, false, Doc), NewData);
+doc_close_connection({failure, Failure}, _, _) ->
   % Silently fails
+  ?DEBUG("MongoDB failed in doc_close_connection ~p", [Failure]),
   failure.
 
 %@doc Sends an message as mod_copilot@localhost and performs base64-encoding of the attributes
