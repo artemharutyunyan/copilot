@@ -44,16 +44,15 @@ stop(Host) ->
 
   ok.
 
-on_set_presence(User, Server, Resource, _Packet) ->   handle_presence(connect, {User, Server, Resource}).
-on_unset_presence(User, Server, Resource, _Status) -> handle_presence(disconnect, {User, Server, Resource}).
+on_set_presence(User, Server, Resource, _Packet) ->
+  {IPAddress, _} = ejabberd_sm:get_user_ip(User, Server, Resource),
+  handle_presence(connect, {User, Server, Resource}, IPAddress).
+on_unset_presence(User, Server, Resource, _Status) ->
+  handle_presence(disconnect, {User, Server, Resource}, null).
 
 %@doc Handles presence stanzas sent by users
-handle_presence(UserState, {User, Server, Resource} = JID) ->
-  {IPAddress, _} = ejabberd_sm:get_user_ip(User, Server, Resource),
-  ?DEBUG("User ~p (~p) is ~p", [JID, IPAddress, UserState]),
-
-  % Passes over the processing into a new process
-  % Strings are converted to utf8 because of MongoDB driver
+handle_presence(UserState, JID, IPAddress) ->
+  % Processes the stanza in the gen_server
   gen_server:cast(?MODULE, {UserState, JID, IPAddress}),
   report_event(Server, atom_to_list(UserState)),
   ok.
@@ -85,11 +84,11 @@ handle_call(_Request, _From, State) ->
 handle_cast({connect, JID, IPAddress}, State) ->
   Doc = doc_create_connection(JID, IPAddress),
   mongo_do(State, copilot, fun () -> mongo:save(connections, Doc) end);
-handle_cast({disconnect, {User, Host, Resource} = JID, IPAddress}, State) ->
+handle_cast({disconnect, {User, Host, Resource} = JID, _IPAddress}, State) ->
   mongo_do(State, copilot, fun () ->
-    Cursor = mongo:find(connections, {user, utf8(User),
-                                      host, utf8(Host),
-                                      resource, utf8(Resource),
+    Cursor = mongo:find(connections, {user, bson:utf8(User),
+                                      host, bson:utf8(Host),
+                                      resource, bson:utf8(Resource),
                                       connected, true}),
     NewDoc = doc_close_connection(mongo:next(Cursor), JID, IPAddress),
     mongo:close_cursor(Cursor),
@@ -143,7 +142,7 @@ lookup_ip(IPAddress) ->
 
 %@doc Parses JID (username part) of an agent (ex.: agent_s-10829_1_7_18225d4f-e3f7-4c18-9a18-d6c06992d272_-g)
 parse_component_jid(User) ->
-  lists:zip([component, version, cores, jobs, uuid, ukn], lists:map(fun utf8/1, strings:tokens(User, "_"))).
+  lists:zip([component, version, cores, jobs, uuid, ukn], lists:map(fun bson:utf8/1, strings:tokens(User, "_"))).
 
 %@doc Creates a MonoDB document describing the connection
 doc_create_connection({User, Host, Resource}, IPAddress) ->
@@ -151,9 +150,9 @@ doc_create_connection({User, Host, Resource}, IPAddress) ->
   Lng = proplists:get_value(longitude, GeoData),
   Lat = proplists:get_value(latitude, GeoData),
 
-  {user,         utf8(User),
-   host,         utf8(Host),
-   resource,     utf8(Resource),
+  {user,         bson:utf8(User),
+   host,         bson:utf8(Host),
+   resource,     bson:utf8(Resource),
    loc,          [Lng, Lat],
    connected_at, bson:timenow(),
    connected,    true}.
