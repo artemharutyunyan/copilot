@@ -51,7 +51,7 @@ on_unset_presence(User, Server, Resource, _Status) ->
   handle_presence(disconnect, {User, Server, Resource}, null).
 
 %@doc Handles presence stanzas sent by users
-handle_presence(UserState, JID, IPAddress) ->
+handle_presence(UserState, {_User, Server, _Resource}, IPAddress) ->
   % Processes the stanza in the gen_server
   gen_server:cast(?MODULE, {UserState, JID, IPAddress}),
   report_event(Server, atom_to_list(UserState)),
@@ -90,9 +90,13 @@ handle_cast({disconnect, {User, Host, Resource} = JID, _IPAddress}, State) ->
                                       host, bson:utf8(Host),
                                       resource, bson:utf8(Resource),
                                       connected, true}),
-    NewDoc = doc_close_connection(mongo:next(Cursor), JID, IPAddress),
+    case doc_close_connection(mongo:next(Cursor), JID, null) of
+      {ok, NewDoc} -> mongo:save(connections, NewDoc);
+      {failure, Reason} ->
+        ?DEBUG("Failed to mark connection as closed: ~p", [Reason]),
+        failure
+    end,
     mongo:close_cursor(Cursor),
-    mongo:save(connections, NewDoc)
   end);
 handle_cast(_Msg, State) ->
   {noreply, State}.
@@ -135,6 +139,7 @@ mongo_do(State, Table, Op) ->
   end.
 
 %@doc Returns geosplatial information for given IP
+lookup_ip(null) -> [{latitude, 0.0}, {longitude, 0.0}];
 lookup_ip(IPAddress) ->
   ?DEBUG("Decoding IP address ~p", [IPAddress]),
   [_|Data] = erlang:tuple_to_list(element(2, egeoip:lookup(IPAddress))),
@@ -158,21 +163,15 @@ doc_create_connection({User, Host, Resource}, IPAddress) ->
    connected,    true}.
 
 %@doc Marks connection as closed and appends data from agent's JID
-doc_close_connection({ok, {}}, JID, IPAddress) ->
-  % There isn't a connection document so we have to create it first
-  doc_close_connection(doc_create_connection(JID, IPAddress), JID, IPAddress);
+doc_close_connection({failure, Reason}, _, _) -> {failure, Reason};
+doc_close_connection({ok, {}}, _, _) -> {failure, nodoc};
 doc_close_connection({ok, {Doc}}, {User, _Host, _Resource}, _IPAddress) ->
   % Converts a list of tuples ([{x, Val}]) into a list of lists ([[x, Val]]) and flattens it ([x, Val]) for BSON
   AgentData = erlang:list_to_tuple(list:flatmap(fun erlang:tuple_to_list/1, parse_component_jid(User))),
   NewData = {connected, false,
              disconnected_at, bson:timenow(),
              agent_data, AgentData},
-  %NewDoc = bson:update(agent_data, NewData, bson:update(connected, false, Doc))
-  bson:merge(NewData, Doc);
-doc_close_connection({failure, Failure}, _, _) ->
-  % Silently fails
-  ?DEBUG("MongoDB failed in doc_close_connection/3: ~p", [Failure]),
-  failure.
+  {ok, bson:merge(NewData, Doc)}.
 
 %@doc Sends an message as mod_copilot@localhost and performs base64-encoding of the attributes
 route_to_copilot_component(To, Xml) -> route_to_copilot_component(?JID, To, Xml).
