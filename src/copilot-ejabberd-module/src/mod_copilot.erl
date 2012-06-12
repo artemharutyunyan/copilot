@@ -166,7 +166,7 @@ doc_create_connection({User, Host, Resource}, IPAddress) ->
    connected,    true}.
 
 %@doc Marks connection as closed and appends data extracted from agent's JID
-doc_close_connection({}, _) -> {failure, nodoc};
+doc_close_connection({}, _) -> {failure, nosession};
 doc_close_connection({Doc}, {User, _Host, _Resource}) ->
   % Converts a list of tuples ([{x, Val}]) into a list of lists ([[x, Val]]) and flattens it ([x, Val]) for BSON
   AgentData = erlang:list_to_tuple(lists:flatmap(fun erlang:tuple_to_list/1, parse_component_jid(User))),
