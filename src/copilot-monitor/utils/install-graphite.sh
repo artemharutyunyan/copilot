@@ -14,10 +14,7 @@ echo "Downloading SQLite..."
 wget http://sqlite.org/sqlite-autoconf-3070700.tar.gz
 tar xf sqlite-autoconf-3070700.tar.gz
 cd sqlite-autoconf-307077
-./configure && make
-echo "sudo make install sqlite:"
-sudo make install
-
+./configure --prefix=/usr && make && sudo make install
 cd ..
 
 echo "Downloading easy_install..."
@@ -28,11 +25,28 @@ sudo sh setuptools-0.6c11-py2.4.egg
 echo "Installing Python libraries and applications..."
 sudo easy_install \
 ctypes \
-pysqlite \
-http://cernvm-copilot-monitor.googlecode.com/files/Twisted-10.2.0.tar.bz2
-django \
-https://github.com/tilgovi/gunicorn/tarball/0.11.0 \
-http://cernvm-copilot-monitor.googlecode.com/files/graphite-280711.tar.gz
+http://pysqlite.googlecode.com/files/pysqlite-2.6.3.tar.gz \
+http://pypi.python.org/packages/source/h/hashlib/hashlib-20081119.zip \
+http://pypi.python.org/packages/source/z/zope.interface/zope.interface-3.7.0.tar.gz \
+http://pypi.python.org/packages/source/T/Twisted/Twisted-11.1.0.tar.bz2 \
+
+sudo easy_install https://www.djangoproject.com/download/1.3.1/tarball/ \
+http://django-tagging.googlecode.com/files/django-tagging-0.3.1.tar.gz \
+http://github.com/tilgovi/gunicorn/tarball/0.11.0
+
+echo "Installing carbon, whisper and graphite-web..."
+
+tar xf carbon-0.9.10.tar.gz && cd carbon-0.9.10
+sudo python setup.py install
+cd ..
+
+tar xf whisper-0.9.10.tar.gz && cd whisper-0.9.10
+sudo python setup.py install
+cd ..
+
+tar xf graphite-web-0.9.10.tar.gz && cd graphite-web-0.9.10
+sudo python setup.py install
+cd ..
 
 echo "Downloading gevent..."
 wget http://pypi.python.org/packages/source/g/gevent/gevent-0.13.6.tar.gz
@@ -40,5 +54,9 @@ tar xf gevent-0.13.6.tar.gz && cd gevent-0.13.6
 python fetch_libevent.py
 echo "Installing gevent..."
 sudo python setup.py install
+
+echo "Initialising Graphite's database"
+cd /opt/graphite/webapp/graphite
+python manage.py syncdb
 
 echo "Done!"

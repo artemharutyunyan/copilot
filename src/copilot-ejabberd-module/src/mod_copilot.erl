@@ -90,7 +90,7 @@ handle_cast({disconnect, {User, Host, Resource} = JID, _IPAddress}, State) ->
                                       host, bson:utf8(Host),
                                       resource, bson:utf8(Resource),
                                       connected, true}),
-    case doc_close_connection(mongo:next(Cursor), JID) of
+    case doc_close_connection(mongo:next(Cursor)) of
       {ok, NewDoc} -> mongo:save(connections, NewDoc);
       {failure, Reason} ->
         ?DEBUG("Failed to mark connection from ~p as closed: ~p", [JID, Reason]),
@@ -116,6 +116,10 @@ code_change(_OldVsn, State, _Extra) ->
 %@doc Converts first character to uppercase
 ucfirst([]) -> [];
 ucfirst([First|Rest]) -> string:to_upper(lists:nth(1, io_lib:format("~c", [First]))) ++ Rest.
+
+%@doc Returns a UNIX timestamp
+timestamp() -> timestamp(now()).
+timestamp({M, S, _}) -> M*1000000 + S.
 
 %@doc Mongo driver invalidates the connection on every error,
 mongo_reconnect(State) ->
@@ -148,7 +152,7 @@ lookup_ip(IPAddress) ->
 %@doc Parses JID (username part) of an agent (ex.: agent_s-10829_1_7_18225d4f-e3f7-4c18-9a18-d6c06992d272_-g)
 parse_component_jid(User) ->
   case string:tokens(User, "_") of
-    ["agent"|_] = Props -> lists:zip([component, version, cores, jobs, uuid, ukn], lists:map(fun bson:utf8/1, Props));
+    ["agent"|_] = Props -> lists:zip([component, id, cpus, rev, uuid, ukn], lists:map(fun bson:utf8/1, Props));
     [Component|_] -> [{component, bson:utf8(Component)}]
   end.
 
@@ -157,22 +161,22 @@ doc_create_connection({User, Host, Resource}, IPAddress) ->
   GeoData = lookup_ip(IPAddress),
   Lng = proplists:get_value(longitude, GeoData),
   Lat = proplists:get_value(latitude, GeoData),
+  % Converts a list of tuples ([{x, Val}]) into a list of lists ([[x, Val]]) and flattens it ([x, Val]) for BSON
+  AgentData = erlang:list_to_tuple(lists:flatmap(fun erlang:tuple_to_list/1, parse_component_jid(User))),
 
   {user,         bson:utf8(User),
    host,         bson:utf8(Host),
    resource,     bson:utf8(Resource),
    loc,          [Lng, Lat],
+   agent_data,   AgentData,
    connected_at, bson:timenow(),
    connected,    true}.
 
 %@doc Marks connection as closed and appends data extracted from agent's JID
-doc_close_connection({}, _) -> {failure, nosession};
-doc_close_connection({Doc}, {User, _Host, _Resource}) ->
-  % Converts a list of tuples ([{x, Val}]) into a list of lists ([[x, Val]]) and flattens it ([x, Val]) for BSON
-  AgentData = erlang:list_to_tuple(lists:flatmap(fun erlang:tuple_to_list/1, parse_component_jid(User))),
+doc_close_connection({}) -> {failure, nosession};
+doc_close_connection({Doc}) ->
   NewData = {connected, false,
-             disconnected_at, bson:timenow(),
-             agent_data, AgentData},
+             disconnected_at, bson:timenow()},
   NewDoc = bson:merge(NewData, Doc),
   {ok, NewDoc}.
 
@@ -188,6 +192,7 @@ hash_xml_body({xmlelement, Tag, Attributes, ChildNodes}) ->
    lists:map(fun hash_xml_body/1, ChildNodes)}.
 
 %@doc Performs base64-encoding on tuple's second element
+hash_xml_attribute({"id", _} = Attr) -> Attr;
 hash_xml_attribute({"to", _} = Attr) -> Attr;
 hash_xml_attribute({"from", _} = Attr) -> Attr;
 hash_xml_attribute({"noack", _} = Attr) -> Attr;
@@ -198,26 +203,30 @@ prepare_event_command(Event, Host) -> prepare_event_command(Event, "", Host).
 prepare_event_command(Event, Type, Host) -> proplists:delete(Type, prepare_event_command(Event, Type, "", Host)).
 prepare_event_command(Event, Type, Value, Host) ->
   [{"command", "reportEvent" ++ ucfirst(Type)},
-   {"component", "copilot.ejabberd." ++ Host},
+   {"component", "ejabberd." ++ Host},
    {"event", Event},
    {Type, Value}].
 
+wrap_event_command(To, Command) ->
+  {xmlelement, "message", [{"id", erlang:integer_to_list(timestamp())},
+                           {"from", ?JID},
+                           {"to", To},
+                           {"noack", "1"}],
+                          [{xmlelement, "body", [], [
+                                                      {xmlelement, "info", Command, []}
+                                                    ]}
+                          ]}.
+
 %@doc Sends a reportEvent command to the Monitor
 report_event(Host, Event) ->
-  To = gen_mod:get_module_opt(Host, ?MODULE, monitor_jid, "mon@localhost"),
-  XmlBody = {xmlelement, "message", [{"from", ?JID},
-                                     {"to", To},
-                                     {"noack", "1"}],
-                                     [{xmlelement, "info", prepare_event_command(Event, Host), []}]},
+  To = gen_mod:get_module_opt(Host, ?MODULE, monitor_jid, "monitor@localhost"),
+  XmlBody = wrap_event_command(To, prepare_event_command(Event, Host)),
   route_to_copilot_component(To, XmlBody),
   ok.
 
 %@doc Sends a reportEvent{Type} command to the Monitor
 report_event(Host, Event, Value, Type) ->
-  To = gen_mod:get_module_opt(Host, ?MODULE, monitor_jid, "mon@localhost"),
-  XmlBody = {xmlelement, "message", [{"from", ?JID},
-                                     {"to", To},
-                                     {"noack", "1"},
-                                    [{xmlelement, "info", prepare_event_command(Event, Value, Type, Host), []}]]},
+  To = gen_mod:get_module_opt(Host, ?MODULE, monitor_jid, "monitor@localhost"),
+  XmlBody = wrap_event_command(To, prepare_event_command(Event, Value, Type, Host)),
   route_to_copilot_component(To, XmlBody),
   ok.

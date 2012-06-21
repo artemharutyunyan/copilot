@@ -9,10 +9,20 @@
       "type": "area",
       "refreshRate": 60
     },
-  
+
+    {
+      "title": "Connected machines (last week)",
+      "id": "machines-last-week",
+      "metrics": ["summarize(copilot.ejabberd.*.connect, \"1d\")"],
+      "labelPattern": "Number of agents",
+      "range": "-7d",
+      "type": "area",
+      "minValue": 0
+    },
+
     {
       "title": "System load",
-      "id": "system-load-combined", 
+      "id": "system-load-combined",
       "metrics": ["copilot.jobmanager.generic.*.system.load.1min"],
       "labelPattern": "JM {0}",
       "range": "-6h",
@@ -23,7 +33,7 @@
 
     {
       "title": "Available memory",
-      "id": "mem-usage-combined", 
+      "id": "mem-usage-combined",
       "metrics": ["copilot.jobmanager.generic.*.system.ram.available.mem"],
       "labelPattern": "JM {0}",
       "range": "-6h",
@@ -34,7 +44,7 @@
 
     {
       "title": "Available swap",
-      "id": "swap-usage-combined", 
+      "id": "swap-usage-combined",
       "metrics": ["copilot.jobmanager.generic.*.system.ram.available.swap"],
       "labelPattern": "JM {0}",
       "range": "-6h",
@@ -45,7 +55,7 @@
 
     {
       "title": "Network traffic",
-      "id": "net-io-combined", 
+      "id": "net-io-combined",
       "metrics": ["copilot.jobmanager.generic.*.system.net.*.eth0"],
       "labelPattern": "eth0 {1} (JM {0})",
       "range": "-6h",
@@ -83,8 +93,8 @@
       "range": "-3min",
       "refreshRate": 60
     },
-    
-    
+
+
     {
       "title": "Jobs rates (last week)",
       "id": "jobs-last-week-combined",
@@ -100,7 +110,7 @@
       "refreshRate": 3600,
       "minValue": 0
     },
-    
+
     {
       "title": "Jobs rates (last 6 hours)",
       "id": "jobs-recent-combined",
@@ -116,7 +126,7 @@
       "refreshRate": 10,
       "minValue": 0
     },
-    
+
     {
       "title": "Job duration",
       "id": "jobs-duration-combined",
@@ -127,7 +137,7 @@
       "refreshRate": 10,
       "minValue": 0
     },
-    
+
     {
       "title": "Errors",
       "id": "errors-combined",
@@ -145,7 +155,8 @@
 
     [[3, 9], ["mem-usage-overview", "disk-usage-overview"],
              ["system-load-combined", "mem-usage-combined", "swap-usage-combined", "net-io-combined", "disk-usage-combined"]],
-    
+
+    [[12],   ["machines-last-week"]],
     [[12],   ["jobs-last-week-combined", "jobs-recent-combined"]],
 
     [[6, 6], ["errors-combined"],  ["jobs-duration-combined"]]
