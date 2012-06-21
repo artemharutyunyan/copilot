@@ -16,12 +16,12 @@ window.Dashboard = {
     this.updateClock();
     setInterval(this.updateClock.bind(this), 60*1000);
   },
-  
+
   loadConfig: function () {
     console.log('Loading config');
     $.getJSON('js/dashboard2.config.js?r='+Math.random(), this.parseConfig.bind(this));
   },
-  
+
   parseConfig: function (config) {
     this.config = config;
     console.log('Loaded configuration file', config);
@@ -35,11 +35,11 @@ window.Dashboard = {
         graphs = this.config.graphs,
         rowConfig, graphIds, graphsCount,
         group, i, ii, j, jj, k, kk, gid;
-    
+
     for(i = 0, ii = layout.length; i < ii; i++) {
       rowConfig = layout[i][0];
       graphIds = layout[i].slice(1);
-      
+
       for(j = 0, jj = rowConfig.length; j < jj; j++) {
         group = $('<div class="group grid_' + rowConfig[j] +'"/>');
 
@@ -74,7 +74,7 @@ window.Dashboard = {
       graphs[n] = new Graph(graphs[n]);
       n -= 1;
     };
-    
+
     this._loadNext();
   },
 
@@ -90,10 +90,10 @@ var _replaceRegex = /\{(\d+)\}/g;
 function mapPath(pattern, path, str) {
   pattern = pattern.split('.');
   path = path.split('.');
-  
+
   var mapping = {},
       x = pattern.length, n, m = 0;
-  
+
   for(n = 0; n < x; n++)
     if(pattern[n] === '*')
       mapping[m++] = path[n];
@@ -105,7 +105,7 @@ function Graph(options) {
   this.options = options;
   this.id = options.id || Graph.COUNT++;
   console.log('Initialising new graph', options);
-  
+
   this._el = $(document.getElementById('g-' + this.id));
   if(!this._el.length) {
     setTimeout(function () { Dashboard._loadNext() }, 1);
@@ -152,7 +152,7 @@ function Graph(options) {
 
   if('minValue' in options)
     chartOptions.yAxis.min = options.minValue;
-  
+
   if(options.type === 'pie') {
     chartOptions.plotOptions.series.dataLabels = {enabled: false};
     chartOptions.plotOptions.series.showInLegend = true;
@@ -167,7 +167,7 @@ function Graph(options) {
   }
   if(options.stacking)
     chartOptions.plotOptions.series.stacking = options.stacking;
-  
+
   var metrics = [];
   for(var metric in options.labels) {
     chartOptions.series.push({
@@ -177,10 +177,10 @@ function Graph(options) {
     metrics.push(metric);
   }
   this._metrics = metrics;
-  
+
   this.g = new Highcharts.Chart(chartOptions);
   this._el.prepend('<span class="title">' + options.title + '</span>');
-  
+
   //setTimeout(function () { Dashboard._loadNext(); }, 1);
 
   return this;
@@ -195,12 +195,12 @@ Graph.prototype = {
               this.options.metrics.map(function (x) { return 'target=' + encodeURIComponent(x) }).join('&'),
               'uniq=' + Math.random()
             ];
-    
+
     if(this._lastUpdate)
       q.push('from=' + this._lastUpdate, 'until=now');
     else
       q.push('from=' + this.options.range, 'until=now');
-    
+
     return q.join('&');
   },
   patternForPath: function (path) {
@@ -212,13 +212,13 @@ Graph.prototype = {
     while(n--) {
       var pattern = metrics[n].split('.'),
           m = pattern.length;
-      
+
       if(path.length !== m) continue;
 
       while(m--)
         if(pattern[m] !== '*' && pattern[m] !== path[m])
           continue patternLoop;
-      
+
       return metrics[n];
     }
   },
@@ -227,7 +227,7 @@ Graph.prototype = {
     if(this.options.type !== 'pie')
       options.name = mapPath(this.patternForPath(path), path, this.options.labelPattern);
 
-    this.g.addSeries(options, false, false);    
+    this.g.addSeries(options, false, false);
     return this._metrics.push(path) - 1;
   },
   path2index: function (path) {
@@ -237,7 +237,8 @@ Graph.prototype = {
     var q = this.buildQuery();
     console.log('GET /render?' + q);
     $.get('/render?' + q, this.parseResponse.bind(this));
-    setTimeout(this.refresh.bind(this), (this.options.refreshRate || 60) * 1000);
+    if(this.options.refreshRate !== 0)
+      setTimeout(this.refresh.bind(this), (this.options.refreshRate || 60) * 1000);
   },
   parseResponse: function (data) {
     setTimeout(function () { Dashboard._loadNext(); }, 1);
@@ -252,9 +253,9 @@ Graph.prototype = {
         delta   = this.options.refreshRate * 1000,
         series  = data.split('\n'),
         n       = series.length;
-    
+
     if(pie) {
-      var updates = [], sum = 0, 
+      var updates = [], sum = 0,
           labelPattern = this.options.labelPattern,
           labels = this.options.labels,
           pattern, label;
