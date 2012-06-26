@@ -3,6 +3,7 @@
 -behaviour(gen_server).
 
 -define(JID, "mod_copilot@localhost").
+-define(REPORT_INTERVAL, 60000).
 
 -include("ejabberd.hrl").
 -include("jlib.hrl").
@@ -21,7 +22,8 @@ start(Host, Opts) ->
 
   % Starts the local gen_server under supervision of ejabberd
   Proc = gen_mod:get_module_proc(Host, ?MODULE),
-  ChildSpec = {Proc, {?MODULE, start_link, [Host, Opts]},
+  ExpandedOpts = Opts ++ [{host, Host}],
+  ChildSpec = {Proc, {?MODULE, start_link, [Host, ExpandedOpts]},
                      permanent,
                      1000,
                      worker,
@@ -54,7 +56,7 @@ on_unset_presence(User, Host, Resource, _Status) ->
 handle_presence(UserState, {_User, Host, _Resource} = JID, IPAddress) ->
   % Processes the stanza in the gen_server
   gen_server:cast(?MODULE, {UserState, JID, IPAddress}),
-  report_event(Host, atom_to_list(UserState)),
+  %report_event(Host, atom_to_list(UserState)),
   ok.
 
 %%% gen_server %%%
@@ -71,14 +73,15 @@ init(Args) ->
   end,
   {ok, Conn} = mongo:connect(Host),
 
-  State = [{opts, Args},   % Module's settings, as defined in the ejabberd.cfg
+  timer:send_interval(?REPORT_INTERVAL, connected_users_interval),
+
+  State = [{opts, Args},   % Module's settings, as defined in ejabberd.cfg
            {mongo, Conn}   % MongoDB connection
           ],
   {ok, State}.
 
 handle_call(_Request, _From, State) ->
-  Reply = ok,
-  {reply, Reply, State}.
+  {reply, ok, State}.
 
 %@doc Handles cases when agents connect and disconnect from the server
 handle_cast({connect, JID, IPAddress}, State) ->
@@ -101,6 +104,14 @@ handle_cast({disconnect, {User, Host, Resource} = JID, _IPAddress}, State) ->
 handle_cast(_Msg, State) ->
   {noreply, State}.
 
+%@doc Periodically reports the number of connected users to Co-Pilot monitor
+handle_info(connected_users_interval, State) ->
+  Opts = proplists:get_value(opts, State),
+  Host = proplists:get_value(host, Opts),
+  Sessions = erlang:length(ejabberd_sm:dirty_get_sessions_list()),
+  ?DEBUG("Reporting number of connected machines to Co-Pilot Monitor (~p)", [Sessions]),
+  report_event(Host, "connected", integer_to_list(Sessions), "value"),
+  {noreply, State};
 handle_info(_Info, State) ->
   {noreply, State}.
 
