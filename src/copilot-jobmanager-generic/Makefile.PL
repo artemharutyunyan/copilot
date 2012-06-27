@@ -11,8 +11,8 @@ WriteMakefile(
 sub MY::postamble 
 {
         return <<'MAKE_FRAG';
-BINDIR = /usr/bin
-SYSCONFDIR=/etc
+#BINDIR = /usr/bin
+#SYSCONFDIR=/etc
 install-all: install 
 	mkdir -p $(DESTDIR)/$(BINDIR)
 	mkdir -p $(DESTDIR)/$(SYSCONFDIR)/copilot
