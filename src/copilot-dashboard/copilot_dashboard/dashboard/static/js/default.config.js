@@ -1,23 +1,33 @@
 {
   "graphs": [
     {
-      "title": "Job Queues",
+      "title": "Job queues",
       "id": "queues-total",
       "metrics": ["copilot.jobmanager.generic.*.queuedJobs"],
       "labelPattern": "Number of queued jobs on {0}",
       "range": "-6h",
       "type": "area",
+      "sumWith": "avg",
       "refreshRate": 60
     },
 
     {
-      "title": "Connected machines (last week)",
-      "id": "machines-last-week",
-      "metrics": ["summarize(copilot.ejabberd.*.connect, \"1d\")"],
-      "labelPattern": "Number of agents",
-      "range": "-7d",
+      "title": "Connected machines",
+      "id": "machines",
+      "metrics": ["copilot.ejabberd.*.connect"],
+      "labelPattern": "Number of machines",
+      "range": "-6h",
       "type": "area",
+      "sumWith": "avg",
       "minValue": 0
+    },
+
+    {
+      "title": "Machines",
+      "id": "machines-map",
+      "type": "map",
+      "source": "/api/connections",
+      "detail": "/api/connections/"
     },
 
     {
@@ -27,6 +37,7 @@
       "labelPattern": "JM {0}",
       "range": "-6h",
       "type": "line",
+      "sumWith": "avg",
       "refreshRate": 60,
       "minValue": 0
     },
@@ -49,6 +60,7 @@
       "labelPattern": "JM {0}",
       "range": "-6h",
       "type": "line",
+      "sumWith": "avg",
       "refreshRate": 60,
       "minValue": 0
     },
@@ -60,16 +72,18 @@
       "labelPattern": "eth0 {1} (JM {0})",
       "range": "-6h",
       "type": "line",
+      "sumWith": "avg",
       "refreshRate": 60
     },
 
     {
       "title": "Disk usage",
       "id": "disk-usage-combined",
-      "metrics": ["copilot.jobmanager.generic.*.system.disk.*.sda1"],
-      "labelPattern": "{1} space on disk sda1 (JM {0})",
+      "metrics": ["copilot.jobmanager.generic.*.system.disk.*.*"],
+      "labelPattern": "{1} space on disk {2} (JM {0})",
       "type": "line",
       "range": "-6h",
+      "sumWith": "avg",
       "refreshRate": 60,
       "minValue": 0
     },
@@ -81,6 +95,7 @@
       "labelPattern": "{0}",
       "type": "pie",
       "range": "-3min",
+      "sumWith": "avg",
       "refreshRate": 60
     },
 
@@ -94,26 +109,9 @@
       "refreshRate": 60
     },
 
-
     {
-      "title": "Jobs rates (last week)",
-      "id": "jobs-last-week-combined",
-      "metrics": ["summarize(copilot.aggregate.jobmanager.generic.rt.totalJobs, \"1h\")",
-                  "summarize(copilot.aggregate.jobmanager.generic.rt.job.succeeded.count, \"1h\")"],
-      "labels": {
-        "summarize(copilot.aggregate.jobmanager.generic.rt.totalJobs, \"1h\")": "total",
-        "summarize(copilot.aggregate.jobmanager.generic.rt.job.succeeded.count, \"1h\")": "succeeded"
-      },
-      "type": "area",
-      "stacking": "percent",
-      "range": "-1week",
-      "refreshRate": 3600,
-      "minValue": 0
-    },
-
-    {
-      "title": "Jobs rates (last 6 hours)",
-      "id": "jobs-recent-combined",
+      "title": "Job rates",
+      "id": "jobs",
       "metrics": ["copilot.aggregate.jobmanager.generic.rt.totalJobs",
                   "copilot.aggregate.jobmanager.generic.rt.job.succeeded.count"],
       "labels": {
@@ -123,7 +121,7 @@
       "type": "area",
       "stacking": "percent",
       "range": "-6h",
-      "refreshRate": 10,
+      "refreshRate": 3600,
       "minValue": 0
     },
 
@@ -134,6 +132,7 @@
       "labelPattern": "Average duration of a {0} job",
       "type": "scatter",
       "range": "-6h",
+      "sumWith": "avg",
       "refreshRate": 10,
       "minValue": 0
     },
@@ -151,14 +150,12 @@
   ],
 
   "layout": [
-    [[12],   ["queues-total"]],
+    [[12],   ["jobs", "queues-total"]],
+    [[12],   ["machines-map", "machines"]],
+
+    [[6, 6], ["errors-combined"],  ["jobs-duration-combined"]],
 
     [[3, 9], ["mem-usage-overview", "disk-usage-overview"],
-             ["system-load-combined", "mem-usage-combined", "swap-usage-combined", "net-io-combined", "disk-usage-combined"]],
-
-    [[12],   ["machines-last-week"]],
-    [[12],   ["jobs-last-week-combined", "jobs-recent-combined"]],
-
-    [[6, 6], ["errors-combined"],  ["jobs-duration-combined"]]
+             ["system-load-combined", "mem-usage-combined", "swap-usage-combined", "net-io-combined", "disk-usage-combined"]]
   ]
 }
