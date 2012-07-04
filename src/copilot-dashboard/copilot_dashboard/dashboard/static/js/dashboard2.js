@@ -102,8 +102,8 @@ window.Dashboard = {
     while(n--) {
       config = $.extend(true, {}, configs[n]);
       config.range = Dashboard.adjustRangeForMode(config.range, config.type === 'map');
+      if(Dashboard.dataMode !== "realtime") config.refreshRate = 0;
       if(config.type !== "map") {
-        if(Dashboard.dataMode !== "realtime") config.refreshRate = 0;
         metrics = config.metrics;
         m = metrics.length;
         while(m--) {
@@ -234,7 +234,7 @@ Graph.prototype = {
 
     while(n--) {
       m = metrics[n];
-      q.push('target=' + encodeURIComponent(Dashboard.adjustPathForMode(m)));
+      q.push('target=' + encodeURIComponent(m));
     }
 
     var from = Dashboard.adjustRangeForMode(this._lastUpdate ? this._lastUpdate : this.options.range);
@@ -261,6 +261,15 @@ Graph.prototype = {
       return metrics[n];
     }
   },
+  path2index: function (path) {
+    return this._metrics.indexOf(path);
+  },
+  stripFunctions: function (path) {
+    if(path.indexOf('(') === -1) return path;
+
+    var parts = path.split('(');
+    return parts[parts.length-1].split(',')[0];
+  },
   addSeries: function (path) {
     var options = {data: []};
     if(this.options.type !== 'pie')
@@ -268,9 +277,6 @@ Graph.prototype = {
 
     this.g.addSeries(options, false, false);
     return this._metrics.push(path) - 1;
-  },
-  path2index: function (path) {
-    return this._metrics.indexOf(path);
   },
   refresh: function () {
     var q = this.buildQuery();
@@ -298,7 +304,6 @@ Graph.prototype = {
         series  = data,
         n       = series.length;
 
-    // TODO FIX PIE
     if(pie) {
       var updates = [], sum = 0,
           labelPattern = this.options.labelPattern,
@@ -308,7 +313,7 @@ Graph.prototype = {
       while(n--) {
         line    = series[n];
         if(!line) continue;
-        path    = line.target;
+        path    = this.stripFunctions(line.target);
         values  = line.datapoints;
         m       = values.length;
 

@@ -5,19 +5,19 @@ if __name__ == '__main__':
   import subprocess
   from optparse import OptionParser
   import copilot_dashboard
+  from copilot_dashboard.local_settings import SETTINGS
 
-  optparser = OptionParser()
-  optparser.add_option('-b', '--bind', dest="bind", help="bind address and port (default: 0.0.0.0:3274)", default="0.0.0.0:3274")
-  optparser.add_option('-l', '--log', dest="log_file", help="path of the log file (default: /tmp/copilot_dashboard.log", default="/tmp/copilot-dashboard.log")
-  (options, args) = optparser.parse_args()
+  iface = SETTINGS.get('SERVER_HOST', '0.0.0.0')
+  port = SETTINGS.get('SERVER_PORT', '3274')
+  bind = iface + ':' + port
+  print ("Starting Co-Pilot Dashboard on %s..." % bind)
 
-  print ("Starting Co-Pilot Dashboard on %s..." % options.bind)
   mod_dir = os.path.dirname(copilot_dashboard.__file__)
   command = ["gunicorn_django", "--daemon",
-                                "--workers=2",
-                                "--bind=" + options.bind,
-                                "--pid=/tmp/copilot-dashboard.pid",
-                                "--log-level=info",
-                                "--log-file=" + options.log_file,
+                                "--workers=" + SETTINGS.get('GUNICORN_WORKERS', '2'),
+                                "--bind=" + addr,
+                                "--pid=" + SETTINGS.get('PID_FILE', '/tmp/copilot-dashboard.pid'),
+                                "--log-level=" + SETTINGS.get('LOG_LEVEL', 'info'),
+                                "--log-file=" + SETTINGS.get('LOG_FILE', '/tmp/copilot-dashboard.log'),
                                 mod_dir + "/settings.py"]
   subprocess.call(command)

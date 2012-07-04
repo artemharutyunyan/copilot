@@ -11,7 +11,7 @@ import bson.json_util
 from bson.objectid import ObjectId
 
 from models import get_collection
-from copilot_dashboard.settings import DB, GRAPHITE
+from copilot_dashboard.settings import SETTINGS
 
 HTTP = httplib2.Http("/tmp/httplib2-cache")
 
@@ -30,6 +30,8 @@ def ping(request):
 def stats(request):
   """
   GET /api/stats?target={graphite path}[&from={start timestamp}&until={end timestamp}]
+
+  A simple Graphite proxy
 
   Status codes:
     * 200 - OK
@@ -103,11 +105,14 @@ def mk_graphite_request(path, start, end):
   if end:
     query['until'] = end
 
-  url = "http://%s:%d/render/?%s" % (GRAPHITE['HOST'], GRAPHITE['PORT'], urlencode(query))
+  url = "http://%s:%d/render/?%s" % (SETTINGS['GRAPHITE_HOST'], SETTINGS['GRAPHITE_PORT'], urlencode(query))
   headers, content = HTTP.request(url, "GET")
   return content
 
 class EnhancedJSONEncoder(DjangoJSONEncoder):
+  """
+  Custom JSON encoder which can serialize MongoDB's ObjectId objects.
+  """
   def default(self, o, **kwargs):
     if isinstance(o, ObjectId):
       return str(o)

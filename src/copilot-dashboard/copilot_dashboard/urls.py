@@ -1,6 +1,6 @@
 import os
 from django.conf.urls.defaults import patterns, include, url
-from django.conf import settings
+from local_settings import SETTINGS
 
 docroot = os.path.dirname(os.path.abspath(__file__)) + '/dashboard/static'
 
@@ -13,6 +13,7 @@ urlpatterns = patterns('',
 
   # Dashboard/static files
   url(r'^dashboard$', 'django.views.generic.simple.redirect_to', {'url': 'dashboard/'}),
-  url(r'^dashboard/$', 'django.views.static.serve', {'document_root': docroot, 'path': 'index.html'}),
+  url(r'^dashboard/$', 'django.views.generic.simple.direct_to_template', {'template': 'index.html',
+                                                                          'extra_context': {'api_key': SETTINGS['GMAPS_KEY']}}),
   url(r'^dashboard/(?P<path>.*)$', 'django.views.static.serve', {'document_root': docroot})
 )

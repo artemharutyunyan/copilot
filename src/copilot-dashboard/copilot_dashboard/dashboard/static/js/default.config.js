@@ -5,7 +5,7 @@
       "id": "queues-total",
       "metrics": ["copilot.jobmanager.generic.*.queuedJobs"],
       "labelPattern": "Number of queued jobs on {0}",
-      "range": "-6h",
+      "range": "-1h",
       "type": "area",
       "sumWith": "avg",
       "refreshRate": 60
@@ -16,7 +16,7 @@
       "id": "machines",
       "metrics": ["copilot.ejabberd.*.connect"],
       "labelPattern": "Number of machines",
-      "range": "-6h",
+      "range": "-1h",
       "type": "area",
       "sumWith": "avg",
       "minValue": 0
@@ -35,7 +35,7 @@
       "id": "system-load-combined",
       "metrics": ["copilot.jobmanager.generic.*.system.load.1min"],
       "labelPattern": "JM {0}",
-      "range": "-6h",
+      "range": "-1h",
       "type": "line",
       "sumWith": "avg",
       "refreshRate": 60,
@@ -47,7 +47,7 @@
       "id": "mem-usage-combined",
       "metrics": ["copilot.jobmanager.generic.*.system.ram.available.mem"],
       "labelPattern": "JM {0}",
-      "range": "-6h",
+      "range": "-1h",
       "type": "line",
       "refreshRate": 60,
       "minValue": 0
@@ -58,7 +58,7 @@
       "id": "swap-usage-combined",
       "metrics": ["copilot.jobmanager.generic.*.system.ram.available.swap"],
       "labelPattern": "JM {0}",
-      "range": "-6h",
+      "range": "-1h",
       "type": "line",
       "sumWith": "avg",
       "refreshRate": 60,
@@ -70,7 +70,7 @@
       "id": "net-io-combined",
       "metrics": ["copilot.jobmanager.generic.*.system.net.*.eth0"],
       "labelPattern": "eth0 {1} (JM {0})",
-      "range": "-6h",
+      "range": "-1h",
       "type": "line",
       "sumWith": "avg",
       "refreshRate": 60
@@ -82,7 +82,7 @@
       "metrics": ["copilot.jobmanager.generic.*.system.disk.*.*"],
       "labelPattern": "{1} space on disk {2} (JM {0})",
       "type": "line",
-      "range": "-6h",
+      "range": "-1h",
       "sumWith": "avg",
       "refreshRate": 60,
       "minValue": 0
@@ -94,7 +94,7 @@
       "metrics": ["copilot.aggregate.jobmanager.generic.mem.*"],
       "labelPattern": "{0}",
       "type": "pie",
-      "range": "-3min",
+      "range": "-1h",
       "sumWith": "avg",
       "refreshRate": 60
     },
@@ -102,10 +102,10 @@
     {
       "title": "Disk usage",
       "id": "disk-usage-overview",
-      "metrics": ["copilot.aggregate.jobmanager.generic.disk.*"],
+      "metrics": ["copilot.jobmanager.generic.*.system.disk.available"],
       "labelPattern": "{0}",
       "type": "pie",
-      "range": "-3min",
+      "range": "-1h",
       "refreshRate": 60
     },
 
@@ -120,7 +120,7 @@
       },
       "type": "area",
       "stacking": "percent",
-      "range": "-6h",
+      "range": "-1h",
       "refreshRate": 3600,
       "minValue": 0
     },
@@ -131,7 +131,7 @@
       "metrics": ["copilot.aggregate.jobmanager.generic.rt.job.*.avg"],
       "labelPattern": "Average duration of a {0} job",
       "type": "scatter",
-      "range": "-6h",
+      "range": "-1h",
       "sumWith": "avg",
       "refreshRate": 10,
       "minValue": 0
@@ -142,7 +142,7 @@
       "id": "errors-combined",
       "metrics": ["copilot.jobmanager.generic.*.error.*"],
       "labelPattern": "{1} (JM {0})",
-      "range": "-6h",
+      "range": "-1h",
       "type": "scatter",
       "refreshRate": 10,
       "minValue": 0
