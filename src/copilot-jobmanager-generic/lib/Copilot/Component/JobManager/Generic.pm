@@ -400,7 +400,7 @@ sub componentJobDoneHandler
 
     if (defined $heap->{'mongoColl'})
     {
-        my $user = Copilot::Util::parseAgentJID($input->{'from'});
+        my $agentData = Copilot::Util::parseAgentJID($input->{'from'});
         if ($agentData->{'component'} eq 'agent')
         {
             $heap->{'mongoColl'}->update({
