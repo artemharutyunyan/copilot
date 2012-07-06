@@ -13,7 +13,7 @@ sudo conary install pycairo
 echo "Downloading SQLite..."
 wget http://sqlite.org/sqlite-autoconf-3070700.tar.gz
 tar xf sqlite-autoconf-3070700.tar.gz
-cd sqlite-autoconf-307077
+cd sqlite-autoconf-3070700
 ./configure --prefix=/usr && make && sudo make install
 cd ..
 
@@ -35,17 +35,20 @@ http://github.com/tilgovi/gunicorn/tarball/0.11.0
 
 echo "Installing carbon, whisper and graphite-web..."
 
-wget http://github.com/downloads/graphite-project/carbon/carbon-0.9.10.tar.gz
-tar xf carbon-0.9.10.tar.gz && cd carbon-0.9.10
+# Official repository currently ships with a bug
+#wget --no-check-certificate https://github.com/downloads/graphite-project/carbon/carbon-0.9.10.tar.gz
+#tar xf carbon-0.9.10.tar.gz && cd carbon-0.9.10
+wget --no-check-certificate -O carbon.zip https://github.com/josip/carbon/zipball/master
+unzip carbon.zip && cd josip-carbon-*
 sudo python setup.py install
 cd ..
 
-wget http://github.com/downloads/graphite-project/whisper/whisper-0.9.10.tar.gz
+wget --no-check-certificate https://github.com/downloads/graphite-project/whisper/whisper-0.9.10.tar.gz
 tar xf whisper-0.9.10.tar.gz && cd whisper-0.9.10
 sudo python setup.py install
 cd ..
 
-wget http://github.com/downloads/graphite-project/graphite-web/graphite-web-0.9.10.tar.gz
+wget --no-check-certificate https://github.com/downloads/graphite-project/graphite-web/graphite-web-0.9.10.tar.gz
 tar xf graphite-web-0.9.10.tar.gz && cd graphite-web-0.9.10
 sudo python setup.py install
 cd ..
@@ -59,6 +62,18 @@ sudo python setup.py install
 
 echo "Initialising Graphite's database"
 cd /opt/graphite/webapp/graphite
-python manage.py syncdb
+sudo python manage.py syncdb
+cd ..
 
-echo "Done!"
+chmod +x start-graphite.sh
+chmod +x stop-graphite.sh
+
+echo "*****************"
+echo "That's it!"
+echo "Your Graphite installation is... almost ready!"
+echo " - change the ownership of /opt/graphite"
+echo " - take a look at files in the config/ directory"
+echo " - adjust them to your needs and copy them to /opt/graphite/config"
+echo " - take a look at /opt/graphite/config/carbon.conf.example"
+echo "To start/stop Graphite, use scripts provided in this directory"
+echo "*****************"

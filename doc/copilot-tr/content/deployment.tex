@@ -19,7 +19,7 @@ Where \emph{JM\_CHIRP\_WORK\_DIR} should coincide with the directory defined as 
 Co-Pilot Generic Job Manager uses \indexed{Redis}\cite{redis} for storing the job queue. Redis sources and documentation can be obtained from http://redis.io/.
 
 \subsection{MongoDB server}
-Co-Pilot Monitor and Co-Pilot Dashboard use \indexed{MongoDB}\cite{mongodb} for storing details about Co-Pilot agents and Dashboard settings. Binary distribution of MongoDB can be obtainted from http://mongodb.org/downloads.
+Co-Pilot Monitor and Co-Pilot Dashboard use \indexed{MongoDB}\cite{mongodb} for storing details about Co-Pilot agents and Dashboard settings. Binary distribution of MongoDB can be obtained from http://mongodb.org/downloads.
 
 \subsection{Perl modules}
 \copilot is written in Perl programming language and depends on a list of 3rd party Perl modules. On CernVM, the installation of these modules will be triggered automatically during the installation of \copilot. To install all the dependencies on CernVM manually one can trigger the installation of perl-Component-Copilot package (all \copilot components depend on it):
@@ -29,38 +29,61 @@ Co-Pilot Monitor and Co-Pilot Dashboard use \indexed{MongoDB}\cite{mongodb} for 
 $ sudo conary update perl-Copilot
 \end{lstlisting}
 
-Running \copilot Generic Job Manager requires the manual installation of Redis Perl module:
+Running \copilot Generic Job Manager requires manual installation of Perl modules for Redis and MongoDB using CPAN:
 
-\lstset{caption=Installing Redis Perl module}
+\lstset{caption=Installing Perl modules}
 \begin{lstlisting}
-$ wget http://search.cpan.org/CPAN/authors/id/M/ME/MELO/Redis-1.904.tar.gz
-$ tar xvz Redis-1.904.tar.gz
-$ cd Redis-1.904.tar.gz
-$ perl Makefile.PL
-$ make
-$ sudo make install
+$ sudo cpan CPAN
+['no' to manual configuration]
+$ sudo cpan
+['yes' to automatic configuration]
+cpan[1]> reload cpan
+cpan[2]> reload index
+cpan[3]> install Redis
+cpan[4]> notest install MongoDB
 \end{lstlisting}
+
+Installation procedure is interactive and depending on target system it might take some time. When asked if dependencies should be installed, answer with yes. Tests won't be performed for the MongoDB library because they require an up-and-running installation of MongoDB.
 
 \subsection{Graphite}
 \subsubsection{Installing Graphite}
-Graphite is used for system monitoring. Graphite sources and documentation can be obtained from http://graphite.wikidot.com/.
+Graphite is used for collecting statistics and it powers Co-Pilot Monitor.
+Graphite sources and documentation can be obtained from http://graphite.wikidot.com/.
 
-Graphite depends on a few Python libraries:
+Graphite depends on the following Python libraries:
 \begin{itemize}
   \item PySQLite2 (comes with Python 2.5 or newer)
   \item ctypes (comes with Python 2.5 or newer)
   \item hashlib (comes with Python 2.5 or newer)
-  \item Twisted 11.1.0 or later
-  \item Gevent
-  \item Gunicorn
-  \item Django
-  \item django-tagging
+  \item Zope.Interface (3.7.0)
+  \item Twisted (11.1.0)
+  \item Gevent (0.13.6)
+  \item Gunicorn (0.11.0)
+  \item Django (1.3)
+  \item django-tagging (0.3.1)
+  \item PyMongo (2.2)
   \item PyCairo (available in CernVM's package manager)
 \end{itemize}
 
 A script is provided in \texttt{copilot-monitor/utils/install-graphite.sh} which downloads and installs all Graphite's prerequisites.
 A list of URLs from which the packages can be manually obtained is provided in the file as well.
 
+There are some known problems with Graphite being installed via Python's package manager, which is why you are advised to it from source:
+
+\lstset{caption=Installing Graphite}
+\begin{lstlisting}
+$ wget http://github.com/downloads/graphite-project/whisper/whisper-0.9.10.tar.gz
+$ tar xf whisper-0.9.10.tar.gz && cd whisper-0.9.10
+$ sudo python setup.py install
+$ wget http://github.com/downloads/graphite-project/carbon/carbon-0.9.10.tar.gz
+$ tar xf carbon-0.9.10.tar.gz && cd carbon-0.9.10
+$ sudo python setup.py install
+$ wget http://github.com/downloads/graphite-project/graphite-web/graphite-web-0.9.10.tar.gz
+$ tar xf graphite-web-0.9.10.tar.gz && cd graphite-web-0.9.10
+$ sudo python setup.py install
+\end{lstlisting}
+
+\subsubsection{Configuration}
 Before using Graphite's web interface, an administrator account has to be created:
 \lstset{caption=Creating admin users}
 \begin{lstlisting}
@@ -68,7 +91,6 @@ $ cd /opt/graphite/webapp/graphite
 $ sudo python manage.py syncdb
 \end{lstlisting}
 
-\subsubsection{Configuration}
 Recommended configuration files for Graphite and Whisper are provided in \texttt{copilot-monitor/util/config}. Note that you may have to adjust the names of hard disks and network interfaces mentioned in configuration files according to your system.
 It is also recommended to change the ownership of \texttt{/opt/graphite} directory to a non-root user.
 
@@ -77,21 +99,7 @@ In some cases it might happen that not all of the Graphite's files were copied o
 To verify your Graphite installation make sure that both \texttt{carbon} and \texttt{twisted} directories exist in \texttt{/opt/graphite/lib}.
 Non-functioning aggregation service (\texttt{carbon-aggregator.py}) can be one of the indicators of the broken installation as well.
 
-To fix the issue, a manual re-installation of Graphite will be required:
-\lstset{caption=Manual installation of Graphite}
-\begin{lstlisting}
-$ wget http://cernvm-copilot-monitor.googlecode.com/files/graphite-280711.tar.gz
-$ tar xf graphite-280711.tar.gz
-$ cd graphite
-$ sudo python setup.py install
-$ cd ../whisper
-$ sudo python setup.py install
-$ cd ../carbon
-$ sudo python setup.py install
-\end{lstlisting}
-
-After re-installing the Graphite make sure that the user under which Graphite will be running has
-both read and write access to following directories:
+To fix the problem, make sure that user account which will run Graphite processes has read and write access to following directories:
 \lstset{caption=Adjusting directory permissions}
 \begin{lstlisting}
 $ chown -R manager:manager /opt/graphite
@@ -135,13 +143,14 @@ The value of the following variables must be set before the Job Manager can be s
   \item \emph{JM\_JABBER\_DOMAIN} - domain which your Jabber/XMPP server is configured to serve (e.g. xmpp.cern.ch)
   \item \emph{JM\_JABBER\_ID} - Jabber ID of the Job Manager (ID should be registered on your jabber server)
   \item \emph{JM\_JABBER\_PASSWORD} - password for authenticating as JM\_JABBER\_ID on JM\_JABBER\_SERVER
-  \item \emph{JM\_JABBER\_RESOURCE} - Jabber resource id (e.g. firstcopilotjm)
+  \item \emph{JM\_JABBER\_RESOURCE} - Jabber resource id (e.g. firstcopilotjm, required for Co-Pilot Monitor)
   \item \emph{JM\_LOGGER\_CONFIG\_FILE} - log file format configuration (e.g. \texttt{/etc/copilot/loggerConf/jobmanager-generic-logger.conf})
   \item \emph{JM\_CHIRP\_SERVER} - address of the server on which Chirp is running
   \item \emph{JM\_CHIRP\_WORK\_DIR} - directory which is 'exported' by the Chirp server
   \item \emph{JM\_DONE\_JOB\_DIR} - directory where the results of the done jobs are saved
   \item \emph{JM\_REDIS\_SERVER} - machine on which Redis DB is running (e.g. localhost)
   \item \emph{JM\_WAITING\_JOBS\_LIST} - Name of the list in the Redis DB containing waiting jobs' IDs (defaults to 'waiting\_jobs')
+  \item \emph{JM\_MONGO\_SERVER} - machine on which MongoDB is running (e.g. localhost; optional)
   \item \emph{JM\_JOB\_REQUIRE\_FILE} - Name of the file which is required to be present on the Agent machine which receives a job from this Job Manager (optional). For details see \ref{sct:havegetjob}.
   \item \emph{JM\_QUEUE\_ONLY\_MODE\_ON} - Set to '1' if you want the Job Manager to only act as a job queue (i.e. ignore messages related to storing job results)
   \item \emph{JM\_STORAGE\_ONLY\_MODE\_ON} - Set to '1' if you want the Job Manager to only act as a storage service (i.e. ignore messages related to requesting new jobs)
@@ -258,9 +267,10 @@ $ copilot-monitor
 
 \subsubsection{Installing ejabberd Module}
 
-As a part of the monitoring solution, an ejabberd module is available for monitoring data available only from inside of the server.
+As a part of the monitoring solution, an ejabberd module is available for collecting the data like number of connected users or their geographical location.
 \lstset{caption=Installing ejabberd module}
 \begin{lstlisting}
+$ cd copilot/src/copilot-ejabberd-module
 $ ./configure
 $ make get-deps
 $ sudo install-deps
@@ -271,7 +281,7 @@ $ sudo make install
 \subsubsection{Configuring ejabberd Module}
 
 In order to get ejabberd to load the module, ejabberd's configuration file needs to be updated. At the end of list of modules in \texttt{/etc/ejabberd/ejabberd.cfg} you need to add:
-\lstset("Updated ejabberd.cfg")
+\lstset{caption=Updated ejabberd.cfg}
 \begin{lstlisting}
 {modules, [
   ...
@@ -282,7 +292,16 @@ In order to get ejabberd to load the module, ejabberd's configuration file needs
 ]}.
 \end{lstlisting}
 
-After modifying the configuration file, ejabberd should be restarted.
+After modifying the configuration file, the server can be either restarted or the module can be dynamically loaded through ejabberd's debug console:
+
+\lstset{caption=Loading mod\_copilot}
+\begin{lstlisting}
+$ /sbin/ejabberdctl debug
+1> ejabberd_config:load_file("/etc/ejabberd/ejabberd.cfg").
+2> l(mod_copilot).
+{module, mod_copilot}
+3> [press Control + C twice to quit]
+\end{lstlisting}
 
 \subsection{Installing Co-Pilot Dashboard}
 
@@ -291,12 +310,34 @@ Monitor comes with a simplified dashboard interface for instant overview of the 
 To obtain the source code and install it:
 \lstset{caption=Installing the Dashboard}
 \begin{lstlisting}
-$ svn co https://cernvm-copilot-monitor.googlecode.com/svn/trunk/copilot-dashboard\
-copilot-dashboard
-$ cp -r copilot-dashboard /opt/graphite/webapp/content
+$ cd copilot/src/copilot-dashboard
+$ python setup.py build
+$ sudo python setup.py install
 \end{lstlisting}
 
-The interface will be available on http://localhost:8000/content/copilot-dashboard/index.html
+\subsection{Configuring Co-Pilot Dashboard}
+
+Example configuration file, \texttt{copilot-dashboard.conf.example} has been provided in the source tree, the file should be manually copied to \texttt{/etc/copilot/copilot-dashboard.conf}. Configuration file follows the same format as other Co-Pilot components (VARIABLE\_NAME WHITESPACE VARIABLE\_VALUE):
+
+\begin{itemize}
+  \item \emph{DASH\_SERVER\_HOST} - address on which the web server will run (e.g. 0.0.0.0 or localhost)
+  \item \emph{DASH\_SERVER\_PORT} - port on which the web server will be available (default: 3274)
+  \item \emph{DASH\_GRAPHITE\_HOST} - address of Graphite's web interface (e.g. localhost)
+  \item \emph{DASH\_GRAPHITE\_PORT} - port on which Graphite's web interface is running (e.g. 8000)
+  \item \emph{DASH\_MONGODB\_HOST} - address on which MongoDB is running (eg. localhost)
+  \item \emph{DASH\_MONGODB\_PORT} - port on which MongoDB is running (default: 27017)
+  \item \emph{DASH\_MONGODB\_DB} - name of the MongoDB database used by the Dashboard (default: copilot)
+  \item \emph{DASH\_GMAPS\_API\_KEY} - API key for Google Maps (optional)
+\end{itemize}
+
+\subsection{Starting Co-Pilot Dashboard}
+
+Dashboard can be started with the \texttt{copilot-dashboard} command. By default, the web server will be bound to 0.0.0.0 on port 3274.
+\lstset{caption=Starting Co-Pilot}
+\begin{lstlisting}
+$ copilot-dashboard start
+Starting Co-Pilot Dashboard on 0.0.0.0:3274...
+\end{lstlisting}
 
 \section{Deployment of Co-Pilot Heartbeat}
 
