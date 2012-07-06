@@ -29,21 +29,23 @@ http://pysqlite.googlecode.com/files/pysqlite-2.6.3.tar.gz \
 http://pypi.python.org/packages/source/h/hashlib/hashlib-20081119.zip \
 http://pypi.python.org/packages/source/z/zope.interface/zope.interface-3.7.0.tar.gz \
 http://pypi.python.org/packages/source/T/Twisted/Twisted-11.1.0.tar.bz2 \
-
-sudo easy_install https://www.djangoproject.com/download/1.3.1/tarball/ \
+https://www.djangoproject.com/download/1.3.1/tarball/ \
 http://django-tagging.googlecode.com/files/django-tagging-0.3.1.tar.gz \
 http://github.com/tilgovi/gunicorn/tarball/0.11.0
 
 echo "Installing carbon, whisper and graphite-web..."
 
+wget http://github.com/downloads/graphite-project/carbon/carbon-0.9.10.tar.gz
 tar xf carbon-0.9.10.tar.gz && cd carbon-0.9.10
 sudo python setup.py install
 cd ..
 
+wget http://github.com/downloads/graphite-project/whisper/whisper-0.9.10.tar.gz
 tar xf whisper-0.9.10.tar.gz && cd whisper-0.9.10
 sudo python setup.py install
 cd ..
 
+wget http://github.com/downloads/graphite-project/graphite-web/graphite-web-0.9.10.tar.gz
 tar xf graphite-web-0.9.10.tar.gz && cd graphite-web-0.9.10
 sudo python setup.py install
 cd ..
