@@ -59,6 +59,9 @@ use POE::Component::Logger;
 use Data::Dumper;
 
 use Redis;
+use MongoDB;
+use boolean;
+use DateTime;
 
 @ISA = ("Copilot::Component");
 
@@ -146,6 +149,10 @@ sub _loadConfig
     $self->{'REDIS_HOST'} = ($options->{'COMPONENT_OPTIONS'}->{'RedisServer'} || die "Redis server address is not provided\n");
     $self->{'REDIS_PORT'} = ($options->{'COMPONENT_OPTIONS'}->{'RedisPort'}   || die "Redis port address is not provided\n");
 
+    # MongoDB
+    $self->{'MONGODB_HOST'} = ($options->{'COMPONENT_OPTIONS'}->{'MongoDBHost'} || undef);
+    $self->{'MONGODB_PORT'} = ($options->{'COMPONENT_OPTIONS'}->{'MongoDBPort'} || undef);
+
     # Done jobs dir
     $self->{'DONE_JOB_DIR'} = ($options->{'COMPONENT_OPTIONS'}->{'DoneJobDir'} || undef);
     $self->{'DONE_JOB_DIR'} = $self->{'DONE_JOB_DIR'}.'/' if defined $self->{'DONE_JOB_DIR'};
@@ -155,8 +162,8 @@ sub _loadConfig
 
     # Require that a file exists before sending a job
     $self->{'JOB_REQUIRE_FILE'} = ($options->{'COMPONENT_OPTIONS'}->{'JobRequireFile'} || undef);
-  
-    # Check if 'storage-only' mode is on 
+
+    # Check if 'storage-only' mode is on
     $self->{'STORAGE_ONLY_ON'} = ($options->{'COMPONENT_OPTIONS'}->{'StorageOnlyOn'} || undef);
 
     # Check is 'queue-only' mode is on
@@ -180,6 +187,13 @@ sub mainStartHandler
 {
     my ( $kernel, $heap, $self) = @_[ KERNEL, HEAP, ARG0 ];
     $heap->{'self'} = $self;
+
+    if (defined $self->{'MONGODB_HOST'})
+    {
+        $heap->{'mongoConn'} = MongoDB::Connection->new(host => $self->{'MONGODB_HOST'} . ":" . $self->{'MONGODB_PORT'});
+        $heap->{'mongoDB'} = $heap->{'mongoConn'}->copilot;
+        $heap->{'mongoColl'} = $heap->{'mongoDB'}->connections;
+    }
 
     $kernel->alias_set ($self->{'COMPONENT_NAME'});
 
@@ -233,7 +247,7 @@ sub componentProcessInputHandler
     }
     elsif ($input->{'command'} eq 'want_getJob')
     {
-        if ($self->{'STORAGE_ONLY_ON'}) 
+        if ($self->{'STORAGE_ONLY_ON'})
         {
           $kernel->post ($container, $logHandler, 'Ignored the "want_getJob" request (StorageOnlyMode enabled)', 'debug');
           return;
@@ -243,7 +257,7 @@ sub componentProcessInputHandler
     }
     elsif ($input->{'command'} eq 'getJob')
     {
-        if ($self->{'STORAGE_ONLY_ON'}) 
+        if ($self->{'STORAGE_ONLY_ON'})
         {
           $kernel->post ($container, $logHandler, 'Ignored the "getJob" request (StorageOnlyMode enabled)', 'debug');
           return;
@@ -254,7 +268,7 @@ sub componentProcessInputHandler
     }
     elsif ($input->{'command'} eq 'want_getJobOutputDir')
     {
-        if ($self->{'QUEUE_ONLY_ON'}) 
+        if ($self->{'QUEUE_ONLY_ON'})
         {
           $kernel->post ($container, $logHandler, 'Ignored the "want_getJobOutputDir" request (QueueOnlyMode enabled)', 'debug');
           return;
@@ -265,7 +279,7 @@ sub componentProcessInputHandler
     }
     elsif ($input->{'command'} eq 'getJobOutputDir')
     {
-        if ($self->{'QUEUE_ONLY_ON'}) 
+        if ($self->{'QUEUE_ONLY_ON'})
         {
           $kernel->post ($container, $logHandler, 'Ignored the "getJobOutputDir" request (QueueOnlyMode enabled)', 'debug');
           return;
@@ -382,7 +396,32 @@ sub componentJobDoneHandler
 
     my $jobDuration = $finishedAt - ($jmJobData->{'startedAt'} || $finishedAt);
     my $jobStatus   = ($exitCode == 0) ? 'succeeded' : 'failed';
-    $kernel->post ($container, $reportValueHandler, "job.$jobStatus", $jobDuration, 'duration'); 
+    $kernel->post ($container, $reportValueHandler, "job.$jobStatus", $jobDuration, 'duration');
+
+    if (defined $heap->{'mongoColl'})
+    {
+        my $user = Copilot::Util::parseAgentJID($input->{'from'});
+        if ($agentData->{'component'} eq 'agent')
+        {
+            $heap->{'mongoColl'}->update({
+                                          'agent_data.uuid' => $agentData->{'uuid'},
+                                          'connected' => boolean::true,
+                                         },
+                                         {
+                                          '$inc' => {
+                                                     "${jobStatus}_jobs" => 1,
+                                                     #'contributed_time' => $contributedTime,
+                                                    },
+                                        });
+            $heap->{'mongoColl'}->update({
+                                          'agent.uuid' => $agentData->{'uuid'},
+                                          'connected' => boolean::true,
+                                         },
+                                         {
+                                          'updated_at' => DateTime->now,
+                                         });
+        }
+    }
 }
 
 #
@@ -424,7 +463,7 @@ sub componentWantGetJobHandler
 
     my $r = Redis->new(server => $self->{'REDIS_HOST'}.":".$self->{'REDIS_PORT'});
 
-    my $f; 
+    my $f;
     ($f, undef) = split ('@', $input->{'from'});
 
     #$self->{'agentList'} = {} if not defined ($self->{'agentList'});
@@ -432,22 +471,22 @@ sub componentWantGetJobHandler
     my $lastSeen = $r->get("agentseen::".$f);
     my $t = time();
 
-    if (defined ($lastSeen) and ($t - $lastSeen) < 60) 
-    {   
+    if (defined ($lastSeen) and ($t - $lastSeen) < 60)
+    {
         $kernel->post($container, $logHandler, "Agent ".$input->{'from'}." sending job requests way to often. Putting bastard to sleep.", 'info');
-     
-        my $info = { 
+
+        my $info = {
                     'to'   => $input->{'from'},
-                    'info' => { 
+                    'info' => {
                                 'command' => 'sleep',
                               },
                    };
-    
+
         #$kernel->post($container, 'logstalgia', $input->{'from'}, 'want_getJob', 'sleep', 100);
         defined ($input->{'send_back'}) and ($info->{'send_back'} =  $input->{'send_back'});
-        $kernel->post ($container, $sendHandler, $info);  
+        $kernel->post ($container, $sendHandler, $info);
         return;
-    }   
+    }
 
     #$self->{'agentList'}->{$input->{'from'}} = $t;
     $r->set("agentseen::".$f, $t);
