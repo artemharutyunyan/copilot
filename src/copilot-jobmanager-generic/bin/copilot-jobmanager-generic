@@ -75,6 +75,7 @@ my $jm = new Copilot::Container::XMPP (
                                             ChatServer                  => $chatServer,
                                             ChatRoom                    => $chatRoom,
                                             UniqueMonitoringComponent   => '1',
+                                            EnableAggressiveReconnect   => '1',
                                             ComponentOptions => {
                                                                     ChirpDir                => $chirpWorkDir,
                                                                     ChirpServer             => $chirpServer,
