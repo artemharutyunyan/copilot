@@ -284,7 +284,7 @@ In order to get ejabberd to load the module, ejabberd's configuration file needs
 \lstset{caption=Updated ejabberd.cfg}
 \begin{lstlisting}
 {modules, [
-  ...
+  ..., % <- add a colon
   {mod_copilot, [
     {mongodb, {"localhost", 27017}},
     {monitor_jid, "monitor@localhost"},
@@ -292,16 +292,7 @@ In order to get ejabberd to load the module, ejabberd's configuration file needs
 ]}.
 \end{lstlisting}
 
-After modifying the configuration file, the server can be either restarted or the module can be dynamically loaded through ejabberd's debug console:
-
-\lstset{caption=Loading mod\_copilot}
-\begin{lstlisting}
-$ /sbin/ejabberdctl debug
-1> ejabberd_config:load_file("/etc/ejabberd/ejabberd.cfg").
-2> l(mod_copilot).
-{module, mod_copilot}
-3> [press Control + C twice to quit]
-\end{lstlisting}
+After modifying the configuration file, the server has to be restarted in order to load the module.
 
 \subsection{Installing Co-Pilot Dashboard}
 
