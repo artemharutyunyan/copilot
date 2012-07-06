@@ -53,7 +53,7 @@ on_unset_presence(User, Host, Resource, _Status) ->
   handle_presence(disconnect, {User, Host, Resource}, null).
 
 %@doc Handles presence stanzas sent by users
-handle_presence(UserState, {_User, Host, _Resource} = JID, IPAddress) ->
+handle_presence(UserState, JID, IPAddress) ->
   % Processes the stanza in the gen_server
   gen_server:cast(?MODULE, {UserState, JID, IPAddress}),
   %report_event(Host, atom_to_list(UserState)),
@@ -73,10 +73,12 @@ init(Args) ->
   end,
   {ok, Conn} = mongo:connect(Host),
 
-  timer:send_interval(?REPORT_INTERVAL, connected_users_interval),
+  %timer:send_interval(?REPORT_INTERVAL, connected_users_interval),
+  Timer = erlang:start_timer(?REPORT_INTERVAL, self(), []),
 
-  State = [{opts, Args},   % Module's settings, as defined in ejabberd.cfg
-           {mongo, Conn}   % MongoDB connection
+  State = [{opts, Args},         % Module's settings, as defined in ejabberd.cfg
+           {mongo, Conn},        % MongoDB connection
+           {reportTimer, Timer}, % Report timer
           ],
   {ok, State}.
 
@@ -105,12 +107,13 @@ handle_cast(_Msg, State) ->
   {noreply, State}.
 
 %@doc Periodically reports the number of connected users to Co-Pilot monitor
-handle_info(connected_users_interval, State) ->
+handle_info({timeout, _Ref, _Msg}, State) ->
   Opts = proplists:get_value(opts, State),
   Host = proplists:get_value(host, Opts),
   Sessions = erlang:length(ejabberd_sm:dirty_get_sessions_list()),
   ?DEBUG("Reporting number of connected machines to Co-Pilot Monitor (~p)", [Sessions]),
   report_event(Host, "connected", integer_to_list(Sessions), "value"),
+  erlang:start_timer(?REPORT_INTERVAL, self(), []),
   {noreply, State};
 handle_info(_Info, State) ->
   {noreply, State}.
@@ -242,6 +245,6 @@ report_event(Host, Event) ->
 %@doc Sends a reportEvent{Type} command to the Monitor
 report_event(Host, Event, Value, Type) ->
   To = gen_mod:get_module_opt(Host, ?MODULE, monitor_jid, "monitor@localhost"),
-  XmlBody = wrap_event_command(To, prepare_event_command(Event, Value, Type, Host)),
+  XmlBody = wrap_event_command(To, prepare_event_command(Event, Type, Value, Host)),
   route_to_copilot_component(To, XmlBody),
   ok.

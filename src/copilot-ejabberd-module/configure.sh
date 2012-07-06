@@ -33,11 +33,11 @@ install-deps: build-deps
 	mkdir $ERL_DIR/egeoip-master
 	cp -R deps/egeoip/{ebin,include,priv} $ERL_DIR/egeoip-master
 
+  mkdir $ERL_DIR/bson-master
+  cp -R deps/mongodb/deps/bson/{ebin,include} $ERL_DIR/bson-master
+
 	mkdir $ERL_DIR/mongodb-master
 	cp -R deps/mongodb/{ebin,deps,include} $ERL_DIR/mongodb-master
-
-	mkdir $ERL_DIR/bson-master
-	cp -R deps/bson/{ebin,include} $ERL_DIR/bson-master
 
 clean:
 	\$(REBAR) clean \$(REBAR_FLAGS)
