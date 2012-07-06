@@ -12,18 +12,19 @@
     },
 
     {
-      "title": "Connected machines",
+      "title": "Connected users",
       "id": "machines",
-      "metrics": ["copilot.ejabberd.*.connect"],
-      "labelPattern": "Number of machines",
+      "metrics": ["copilot.ejabberd.*.connected"],
+      "labelPattern": "Connected users",
       "range": "-1h",
-      "type": "area",
+      "type": "scatter",
       "sumWith": "avg",
-      "minValue": 0
+      "minValue": 0,
+      "refreshRate": 60
     },
 
     {
-      "title": "Machines",
+      "title": "Connected users",
       "id": "machines-map",
       "type": "map",
       "source": "/api/connections",
@@ -102,7 +103,7 @@
     {
       "title": "Disk usage",
       "id": "disk-usage-overview",
-      "metrics": ["copilot.jobmanager.generic.*.system.disk.available"],
+      "metrics": ["copilot.jobmanager.generic.*.system.disk.*.hda1"],
       "labelPattern": "{0}",
       "type": "pie",
       "range": "-1h",
@@ -133,7 +134,7 @@
       "type": "scatter",
       "range": "-1h",
       "sumWith": "avg",
-      "refreshRate": 10,
+      "refreshRate": 60,
       "minValue": 0
     },
 
@@ -144,7 +145,7 @@
       "labelPattern": "{1} (JM {0})",
       "range": "-1h",
       "type": "scatter",
-      "refreshRate": 10,
+      "refreshRate": 60,
       "minValue": 0
     }
   ],

@@ -178,3 +178,7 @@ body.config-default .map {
   border-left: 0;
   border-right: 0;
 }
+
+.mapinfo td:first-child {
+  text-align: right;
+}

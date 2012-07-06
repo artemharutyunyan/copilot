@@ -51,9 +51,11 @@ def stats(request):
 
 def connections(request):
   """
-  GET /api/connections?from={start}
+  GET /api/connections?from={start}[&allactive=true]
 
-  Lists all connected machines in specified timeframe.
+  Lists all connected users in specified timeframe.
+  If 'allactive' is set to 'true', the timeframe will be ignored and instead
+  all currently connected users will be listed.
 
   Response (JSON):
     [
@@ -65,16 +67,22 @@ def connections(request):
     * 200 - OK
     * 400 - Missing query parameter (from)
   """
-  try:
-    start = datetime.fromtimestamp(int(request.GET['from'])/1000)
-  except KeyError, e:
-    return json({'error': True}, 400)
-
   collection = get_collection('connections')
   docs = []
-  #for doc in collection.find({'loc': {'$ne': [0,0]}}, {'_id': 1, 'loc': 1}): # use only for testing
-  for doc in collection.find({'updated_at': {'$gte': start}}, {'_id': 1, 'loc': 1}):
-    doc['loc'] = [round(coord + random()*0.0004, 5) for coord in doc['loc']]
+
+  query = None
+  if request.GET.get('allactive', 'false') == 'true':
+    query = {'connected': True}
+  else:
+    try:
+      start = datetime.fromtimestamp(int(request.GET['from'])/1000)
+    except KeyError, e:
+      return json({'error': True}, 400)
+
+    query = {'updated_at': {'$gte': start}}
+
+  for doc in collection.find(query, {'_id': 1, 'loc': 1}):
+    doc['loc'] = [coord + random()*0.0004 for coord in doc['loc']]
     docs.append(doc)
 
   return json(docs)
@@ -105,7 +113,7 @@ def mk_graphite_request(path, start, end):
   if end:
     query['until'] = end
 
-  url = "http://%s:%d/render/?%s" % (SETTINGS['GRAPHITE_HOST'], SETTINGS['GRAPHITE_PORT'], urlencode(query))
+  url = "http://%s:%s/render/?%s" % (SETTINGS['GRAPHITE_HOST'], SETTINGS['GRAPHITE_PORT'], urlencode(query))
   headers, content = HTTP.request(url, "GET")
   return content
 

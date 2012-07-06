@@ -133,7 +133,7 @@ window.Dashboard = {
     var mode = this.dataMode;
     if(mode === 'realtime')    return range;
 
-    var now = new Date(), day = 24*60*60*1000;
+    var now = utcnow(), day = 24*60*60*1000;
     if(mode === 'hourly')      return absolute ? now - day : '-1day';
     else if(mode === 'daily')  return absolute ? now - 7*day : '-1week';
     else if(mode === 'weekly') return absolute ? now - 31*day : '-1month';
@@ -197,6 +197,8 @@ function Graph(options) {
     chartOptions.tooltip = {
       formatter: function () { return Highcharts.numberFormat(this.y*100, 2) + '%' }
     };
+  } else if(options.type === 'column') {
+    chartOptions.plotOptions.series.pointWidth = 10;
   } else {
     chartOptions.xAxis.type = 'datetime';
     chartOptions.plotOptions.line = {lineWidth: 2};
@@ -372,7 +374,7 @@ var MAP_INFO_CACHE = {};
 function Map(config) {
   this.config = config;
   this.id = config.id;
-  this._lastUpdate = (new Date()) - 2*30*60*1000;
+  this._lastUpdate = 0;
 
   this._el = document.getElementById('g-' + this.id);
   if(!this._el) {
@@ -435,6 +437,7 @@ function Map(config) {
   this.m = new google.maps.Map(this._el, mapOptions);
   this.mc = new MarkerClusterer(this.m, [], markerOptions);
   this._infoWindow = new google.maps.InfoWindow({content: "x"});
+  this._clients = [];
 
   this.refresh();
   setTimeout(Dashboard._loadNext, 10 + Math.random());
@@ -442,34 +445,47 @@ function Map(config) {
 
 Map.prototype = {
   refresh: function () {
-    var today = new Date(),
-        from = Dashboard.adjustRangeForMode(this._lastUpdate ? this._lastUpdate : this.config.range, true);
+    var today = utcnow(),
+        from = Dashboard.adjustRangeForMode(this._lastUpdate ? this._lastUpdate : this.config.range, true),
+        all = (Dashboard.dataMode == "realtime" && !this._lastUpdate) ? "&allactive=true" : "";
 
-    Buffer.getJSON(this.config.source + "?from=" + from, this.parseResponse.bind(this));
+    Buffer.getJSON(this.config.source + "?from=" + from + all, this.parseResponse.bind(this));
 
     if(this.config.refreshRate !== 0)
       this._refreshTimeout = setTimeout(this.refresh.bind(this), 60 * 1000);
   },
   clear: function () {
     this.mc.clearMarkers();
+    this._clients = [];
     clearTimeout(this._refreshTimeout);
   },
   parseResponse: function (data) {
     var n = data.length,
-        markers = new Array(n);
+        markers = [],
+        c = this._clients,
+        marker, id;
+
+    MAP_INFO_CACHE = {};
 
     while(n--) {
-      markers[n] = new google.maps.Marker({
+      id = data[n]._id;
+      if(c.indexOf(id) !== -1) {
+        continue;
+      }
+
+      marker = new google.maps.Marker({
         position: new google.maps.LatLng(data[n].loc[1], data[n].loc[0]),
-        title: data[n]._id,
+        title: id,
         clickable: true,
         icon: 'img/map/m0.png'
       });
-      this._attachMarkerEvents(markers[n]);
+      markers.push(marker);
+      this._clients.push(id);
+      this._attachMarkerEvents(marker);
     }
 
     this.mc.addMarkers(markers);
-    this._lastUpdate = +(new Date());
+    this._lastUpdate = +utcnow();
   },
   _attachMarkerEvents: function (marker) {
     google.maps.event.addListener(marker, 'click', function () { this.showConnectionInfo(marker) }.bind(this));
@@ -481,10 +497,27 @@ Map.prototype = {
     info.open(this.m, marker);
 
     this.getConnectionInfo(marker.getTitle(), function (data) {
-      var display = '<table class="mapinfo">';
-      for(var field in data) {
-        display += "<tr><td>" + field + ":</td><td>" + data[field] + "</td></tr>";
+      var display = '<table class="mapinfo">',
+          total_jobs = data.succeeded_jobs + data.failed_jobs,
+          formatted = {
+                    'Status': data.connected ? 'Online' : 'Offline',
+                    'Last seen': data.updated_at,
+                 };
+
+      if(data.agent_data.component == 'agent') {
+        formatted['Completed jobs'] = total_jobs;
+        formatted['Contributed CPUs'] = data.agent_data.cpus || "Unknown";
+        formatted['Succeeded jobs'] = '0 (0%)';
+
+        if(total_jobs > 0)
+          formatted['Succeeded jobs'] = data.succeeded_jobs + ' (' +Math.round((total_jobs/data.succeeded_jobs)*10000)/100 + '%)';
+      } else {
+        formatted['Component'] = data.agent_data.component;
       }
+
+      for(var field in formatted)
+        display += "<tr><td>" + field + ":</td><td> " + formatted[field] + "</td></tr>";
+
       display += "</table>";
       info.setContent(display);
     });
@@ -526,6 +559,11 @@ var Buffer = {
 
 function fcupper (str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function utcnow () {
+  var now = new Date();
+  return new Date(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),  now.getUTCHours(), now.getUTCMinutes(), now.getUTCSeconds());
 }
 
 // mapPath('copilot.jobmanager.generic.*.system.disk.*.hda1', 'copilot.jobmanager.generic.default.system.disk.available.hda1', 'JM {0}: {1} disk space');

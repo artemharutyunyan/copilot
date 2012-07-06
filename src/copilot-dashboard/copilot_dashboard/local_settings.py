@@ -20,13 +20,13 @@ SETTINGS = {
 _imported = False
 if not _imported:
   try:
-    settingsf = open('/etc/copilot-dashboard.conf', 'r')
+    settingsf = open('/etc/copilot/copilot-dashboard.conf', 'r')
     lines = settingsf.readlines()
     settingsf.close()
 
     for line in lines:
       line = line.strip()
-      if line[0] == '#' or not line.startswith('DASH_'):
+      if len(line) == 0 or line[0] == '#' or not line.startswith('DASH_'):
         continue
 
       key, value = map(str.strip, line.split(' '))
@@ -35,4 +35,4 @@ if not _imported:
       DEBUG = SETTINGS.get('DEBUG', '0') == '1'
     _imported = True
   except IOError, e:
-    logging.warning('/etc/copilot-dashboard.conf file is missing, using default configuration')
+    logging.warning('/etc/copilot/copilot-dashboard.conf file is missing, using default configuration')

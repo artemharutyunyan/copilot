@@ -53,7 +53,7 @@ STATICFILES_FINDERS = (
 SECRET_KEY = '38+hv+0$$i2@n^y4c5)7ju&-73pm)0q6ls%wt0eo+z)$95_vc4'
 
 TEMPLATE_DIRS = (
-    APP_DIR + '/dashboard/templates'
+    APP_DIR + '/dashboard/static'
 )
 
 # List of callables that know how to import templates from various sources.
