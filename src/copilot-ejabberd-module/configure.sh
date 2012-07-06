@@ -33,8 +33,8 @@ install-deps: build-deps
 	mkdir $ERL_DIR/egeoip-master
 	cp -R deps/egeoip/{ebin,include,priv} $ERL_DIR/egeoip-master
 
-  mkdir $ERL_DIR/bson-master
-  cp -R deps/mongodb/deps/bson/{ebin,include} $ERL_DIR/bson-master
+	mkdir $ERL_DIR/bson-master
+	cp -R deps/mongodb/deps/bson/{ebin,include} $ERL_DIR/bson-master
 
 	mkdir $ERL_DIR/mongodb-master
 	cp -R deps/mongodb/{ebin,deps,include} $ERL_DIR/mongodb-master
@@ -46,14 +46,14 @@ EOF
 echo " * Generating rebar.config..."
 cat > rebar.config << EOF
 {deps, [
-        {mongodb, ".*", {git, "http://github.com/mongodb/mongodb-erlang.git", "HEAD"}},
-        {egeoip, ".*", {git, "http://github.com/mochi/egeoip.git", "HEAD"}}
-       ]}.
+				{mongodb, ".*", {git, "http://github.com/mongodb/mongodb-erlang.git", "HEAD"}},
+				{egeoip, ".*", {git, "http://github.com/mochi/egeoip.git", "HEAD"}}
+			 ]}.
 {lib_dirs, ["deps"]}.
 {erl_opts, [debug_info,
-            fail_on_warning,
-            {i, "$EJD_DIR/include"}
-           ]}.
+						fail_on_warning,
+						{i, "$EJD_DIR/include"}
+					 ]}.
 {clean_files, ["ebin/*.beam", "erl_crash.dump"]}.
 EOF
 

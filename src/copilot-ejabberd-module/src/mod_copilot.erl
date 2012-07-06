@@ -78,7 +78,7 @@ init(Args) ->
 
   State = [{opts, Args},         % Module's settings, as defined in ejabberd.cfg
            {mongo, Conn},        % MongoDB connection
-           {reportTimer, Timer}, % Report timer
+           {reportTimer, Timer} % Report timer
           ],
   {ok, State}.
 
