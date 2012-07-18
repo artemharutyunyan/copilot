@@ -1051,8 +1051,6 @@ sub jobWheelFinishedHandler
     my ($heap, $kernel, $childPID, $exitCode) = @_[HEAP, KERNEL, ARG1, ARG2 ];
 
     my $jobID = $heap->{'currentJobID'};
-  
-    return if ($childPID != $heap->{$jobID}->{'childPID'});
 
     # Child process (PID: $childPid) for job (Job ID: $jobID) finished with: $retVal 
     $heap->{$jobID}->{'exitCode'}  = $exitCode; 
