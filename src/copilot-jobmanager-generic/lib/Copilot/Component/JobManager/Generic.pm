@@ -59,9 +59,6 @@ use POE::Component::Logger;
 use Data::Dumper;
 
 use Redis;
-use MongoDB;
-use boolean;
-use DateTime;
 
 @ISA = ("Copilot::Component");
 
@@ -149,10 +146,6 @@ sub _loadConfig
     $self->{'REDIS_HOST'} = ($options->{'COMPONENT_OPTIONS'}->{'RedisServer'} || die "Redis server address is not provided\n");
     $self->{'REDIS_PORT'} = ($options->{'COMPONENT_OPTIONS'}->{'RedisPort'}   || die "Redis port address is not provided\n");
 
-    # MongoDB
-    $self->{'MONGODB_HOST'} = ($options->{'COMPONENT_OPTIONS'}->{'MongoDBHost'} || undef);
-    $self->{'MONGODB_PORT'} = ($options->{'COMPONENT_OPTIONS'}->{'MongoDBPort'} || undef);
-
     # Done jobs dir
     $self->{'DONE_JOB_DIR'} = ($options->{'COMPONENT_OPTIONS'}->{'DoneJobDir'} || undef);
     $self->{'DONE_JOB_DIR'} = $self->{'DONE_JOB_DIR'}.'/' if defined $self->{'DONE_JOB_DIR'};
@@ -187,13 +180,6 @@ sub mainStartHandler
 {
     my ( $kernel, $heap, $self) = @_[ KERNEL, HEAP, ARG0 ];
     $heap->{'self'} = $self;
-
-    if (defined $self->{'MONGODB_HOST'})
-    {
-        $heap->{'mongoConn'} = MongoDB::Connection->new(host => $self->{'MONGODB_HOST'} . ":" . $self->{'MONGODB_PORT'});
-        $heap->{'mongoDB'} = $heap->{'mongoConn'}->copilot;
-        $heap->{'mongoColl'} = $heap->{'mongoDB'}->connections;
-    }
 
     $kernel->alias_set ($self->{'COMPONENT_NAME'});
 
@@ -352,6 +338,7 @@ sub componentJobDoneHandler
     my $logHandler          = $self->{'LOG_HANDLER'};
     my $sendHandler         = $self->{'SEND_HANDLER'};
     my $reportValueHandler  = $self->{'MONITOR_VALUE_HANDLER'};
+    my $updateEventDetails  = $self->{'MONITOR_UPDATE_DETAILS_HANDLER'};
 
     my $jobID       = $input->{'jobID'};
     my $exitCode    = $input->{'exitCode'} + 0;
@@ -398,29 +385,18 @@ sub componentJobDoneHandler
     my $jobStatus   = ($exitCode == 0) ? 'succeeded' : 'failed';
     $kernel->post ($container, $reportValueHandler, "job.$jobStatus", $jobDuration, 'duration');
 
-    if (defined $heap->{'mongoColl'})
+    my $agentData = Copilot::Util::parseAgentJID($input->{'from'});
+    if ($agentData->{'component'} eq 'agent')
     {
-        my $agentData = Copilot::Util::parseAgentJID($input->{'from'});
-        if ($agentData->{'component'} eq 'agent')
-        {
-            $heap->{'mongoColl'}->update({
-                                          'agent_data.uuid' => $agentData->{'uuid'},
-                                          'connected' => boolean::true,
-                                         },
-                                         {
-                                          '$inc' => {
-                                                     "${jobStatus}_jobs" => 1,
-                                                     #'contributed_time' => $contributedTime,
-                                                    },
-                                        });
-            $heap->{'mongoColl'}->update({
-                                          'agent.uuid' => $agentData->{'uuid'},
-                                          'connected' => boolean::true,
-                                         },
-                                         {
-                                          'updated_at' => DateTime->now,
-                                         });
-        }
+        my $contributedTime = $jmJobData->{'wallTime'} || 0;
+        my $updates = {
+                        '$inc' => {
+                                    "${jobStatus}_jobs" => 1,
+                                    'contributed_time' => $contributedTime,
+                                  },
+                      };
+
+        $kernel->post($container, $updateEventDetails, $agentData->{'uuid'}, $incCounters);
     }
 }
 
