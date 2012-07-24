@@ -40,7 +40,8 @@ $ sudo cpan
 cpan[1]> reload cpan
 cpan[2]> reload index
 cpan[3]> install Redis
-cpan[4]> notest install MongoDB
+cpan[4]> install JSON
+cpan[5]> notest install MongoDB
 \end{lstlisting}
 
 Installation procedure is interactive and depending on target system it might take some time. When asked if dependencies should be installed, answer with yes. Tests won't be performed for the MongoDB library because they require an up-and-running installation of MongoDB.
@@ -150,7 +151,6 @@ The value of the following variables must be set before the Job Manager can be s
   \item \emph{JM\_DONE\_JOB\_DIR} - directory where the results of the done jobs are saved
   \item \emph{JM\_REDIS\_SERVER} - machine on which Redis DB is running (e.g. localhost)
   \item \emph{JM\_WAITING\_JOBS\_LIST} - Name of the list in the Redis DB containing waiting jobs' IDs (defaults to 'waiting\_jobs')
-  \item \emph{JM\_MONGO\_SERVER} - machine on which MongoDB is running (e.g. localhost; optional)
   \item \emph{JM\_JOB\_REQUIRE\_FILE} - Name of the file which is required to be present on the Agent machine which receives a job from this Job Manager (optional). For details see \ref{sct:havegetjob}.
   \item \emph{JM\_QUEUE\_ONLY\_MODE\_ON} - Set to '1' if you want the Job Manager to only act as a job queue (i.e. ignore messages related to storing job results)
   \item \emph{JM\_STORAGE\_ONLY\_MODE\_ON} - Set to '1' if you want the Job Manager to only act as a storage service (i.e. ignore messages related to requesting new jobs)
@@ -249,7 +249,9 @@ Monitor's configuration file is located in \texttt{/etc/copilot/copilot-monitor.
   \item \emph{MON\_JABBER\_ID} - Jabber ID of the Job Manager (ID should be registered on your jabber server)
   \item \emph{MON\_JABBER\_PASSWORD} - password for authenticating as \texttt{MON\_JABBER\_ID} on \texttt{MON\_JABBER\_SERVER}
   \item \emph{CARBON\_SERVER} - address of Carbon database server
-  \item \emph{CARBON\_PORT} - port on which Carbon aggregation service is running (e.g. 2023)
+  \item \emph{CARBON\_PORT} - port on which Carbon aggregation service is running (default: 2023)
+  \item \emph{MONGODB\_SERVER} - machine on which MongoDB is running (e.g. localhost)
+  \item \emph{MONGODB\_PORT} - port on which MongoDB is running (default: 27017)
 \end{itemize}
 
 \subsection{Starting the Monitor}
@@ -286,7 +288,6 @@ In order to get ejabberd to load the module, ejabberd's configuration file needs
 {modules, [
   ..., % <- add a colon
   {mod_copilot, [
-    {mongodb, {"localhost", 27017}},
     {monitor_jid, "monitor@localhost"},
   ]}
 ]}.
