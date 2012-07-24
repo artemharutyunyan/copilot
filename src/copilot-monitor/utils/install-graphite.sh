@@ -10,6 +10,8 @@ read
 echo "Installing pycairo..."
 sudo conary install pycairo
 
+CWD=`dir`
+
 echo "Downloading SQLite..."
 wget http://sqlite.org/sqlite-autoconf-3070700.tar.gz
 tar xf sqlite-autoconf-3070700.tar.gz
@@ -63,8 +65,8 @@ sudo python setup.py install
 echo "Initialising Graphite's database"
 cd /opt/graphite/webapp/graphite
 sudo python manage.py syncdb
-cd ..
 
+cd $CWD
 chmod +x start-graphite.sh
 chmod +x stop-graphite.sh
 
