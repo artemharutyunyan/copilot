@@ -147,10 +147,14 @@ sub _init
     # Registering monitoring states if Monitor's JID was provided
     if ( defined ($self->{'MONITOR_ADDRESS'}) && $self->{'MONITOR_ADDRESS'} ne '' )
     {
-        $self->{session}->_register_state ($self->{'MONITOR_HANDLER'},              \&monitorReportEventHandler);
-        $self->{session}->_register_state ($self->{'MONITOR_VALUE_HANDLER'},        \&monitorReportEventValueHandler);
-        $self->{session}->_register_state ($self->{'MONITOR_START_TIMING_HANDLER'}, \&monitorStartEventHandler);
-        $self->{session}->_register_state ($self->{'MONITOR_STOP_TIMING_HANDLER'},  \&monitorStopEventHandler);
+        $self->{session}->_register_state ($self->{'MONITOR_HANDLER'},               \&monitorReportEventHandler);
+        $self->{session}->_register_state ($self->{'MONITOR_VALUE_HANDLER'},         \&monitorReportEventValueHandler);
+        $self->{session}->_register_state ($self->{'MONITOR_START_TIMING_HANDLER'},  \&monitorStartEventHandler);
+        $self->{session}->_register_state ($self->{'MONITOR_STOP_TIMING_HANDLER'},   \&monitorStopEventHandler);
+        $self->{session}->_register_state ($self->{'MONITOR_DETAILS_HANDLER'},       \&monitorStoreEventDetailsHandler);
+        $self->{session}->_register_state ($self->{'MONITOR_UPDATE_DETAILS_HANDLER'},\&monitorUpdateEventDetailsHandler);
+
+        eval 'use JSON;';
     }
 
     if ( defined ($self->{'CHAT_SERVER'}) && $self->{'CHAT_SERVER'} ne '' )
@@ -176,8 +180,10 @@ sub _init
                         MONITOR_VALUE_HANDLER   => $self->{'MONITOR_VALUE_HANDLER'},
                         TIMING_START_HANDLER    => $self->{'MONITOR_START_TIMING_HANDLER'},
                         TIMING_STOP_HANDLER     => $self->{'MONITOR_STOP_TIMING_HANDLER'},
+                        MONITOR_DETAILS_HANDLER => $self->{'MONITOR_DETAILS_HANDLER'},
+                        MONITOR_UPDATE_DETAILS_HANDLER => $self->{'MONITOR_UPDATE_DETAILS_HANDLER'},
                       );
-    
+
     my %componentInitOptions = (%initOptions, COMPONENT_NAME    => $self->{'COMPONENT_NAME'},
                                               COMPONENT_OPTIONS => $options->{'ComponentOptions'},
                                );
@@ -450,8 +456,8 @@ sub componentSendHandler
     $node->insert_tag (Copilot::Util::hashToXMLNode ($output));
 
     if ( (defined($self->{'JABBER_RESEND'}) && $self->{'JABBER_RESEND'} eq '1') && $noack eq '0')
-    {           
-        my $command = $output->{'info'}->{'command'};        
+    {
+        my $command = $output->{'info'}->{'command'};
 
         if (defined($command))
         {
@@ -460,7 +466,7 @@ sub componentSendHandler
                 $kernel->yield($self->{'LOG_HANDLER'}, "The queue already contains a $command message.", 'debug');
                 return;
             }
-            
+
             $heap->{'commandQueue'}->{$command} = 1;
         }
 
@@ -487,7 +493,7 @@ sub mainProcessQueueHandler
     my $self = $heap->{'self'};
 
     my $now = time();
-        
+
     foreach my $id (keys %$queue)
     {
         my $timestamp = $queue->{$id}->{'timestamp'};
@@ -501,12 +507,12 @@ sub mainProcessQueueHandler
             my $node = $queue->{$id}->{'node'};
             my $nodeHash = Copilot::Util::XMLNodeToHash($node);
             if ($self->{'CONTAINER_CONNECTION'} == 0)
-            {         
+            {
                 $kernel->yield ($self->{'LOG_HANDLER'}, "We do not seem to have a Jabber connection. Trying to reconnect.", 'info');
                 $kernel->post ('Jabber', 'reconnect');
-            } 
+            }
             else
-            { 
+            {
                 $kernel->yield ($self->{'LOG_HANDLER'}, "Resending '" . $nodeHash->{'body'}->{'info'}->{'command'} . "' to ". $nodeHash->{'to'} . " (Msg ID: $id)", 'info');
                 $kernel->post  ('Jabber', 'reconnect');
                 $kernel->delay ('componentSendDelayed', 10, $node);
@@ -656,7 +662,7 @@ sub componentDeliverInputHandler
                     }
 
                     my ($pluginName, $command) = split (':', $msgForComponent->{'command'});
-                    if ( defined($pluginName) && defined($command) ) 
+                    if ( defined($pluginName) && defined($command) )
                     {
                         # Dispatch the input to a plugin (if it exists)
                         my $plugin = $self->{'loadedPlugins'}->{$pluginName};
@@ -815,8 +821,8 @@ sub msgLogstalgiaHandler
     my ($heap, $from, $command, $resp, $size) = @_[HEAP, ARG0, ARG1, ARG2, ARG3];
 
     my $self = $heap->{'self'};
-   
-    unless (defined ($self->{'LOGSTALGIA'})) 
+
+    unless (defined ($self->{'LOGSTALGIA'}))
     {
         open ( $self->{'LOGSTALGIA'}, ">>", "/tmp/logstalgia.log")
             or die "Could not open /tmp/logstalgia.log: $!";
@@ -827,7 +833,7 @@ sub msgLogstalgiaHandler
 
     my @months = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec');
     $mon = $months[$mon];
-    $year += 1900; 
+    $year += 1900;
 
     ($from, undef) = split (/@/, $from);
     my $id = $from;
@@ -938,6 +944,53 @@ sub monitorStopEventHandler
 
     $kernel->yield ('monitorReportEvent', $eventType, $duration, 'duration');
     $kernel->yield ('monitorReportEvent', $eventType . '.end');
+}
+
+sub monitorStoreEventDetailsHandler
+{
+    my ($kernel, $heap, $details) = @_[KERNEL, HEAP, ARG0];
+    my $self = $heap->{'self'};
+
+    my $container      = $self->{'MAIN_SESSION_ALIAS'};
+    my $sendHandler    = $self->{'SEND_HANDLER'};
+    my $monitorAddress = $self->{'MONITOR_ADDRESS'};
+
+    $details = encode_json $details;
+
+    my $eventDetails = {
+                    'to'    => $monitorAddress,
+                    'info'  => {
+                                 'command'   => 'storeEventDetails',
+                                 'details'   => $details,
+                               },
+                    'noack' => 1,
+                   };
+
+    $kernel->post($container, $sendHandler, $eventDetails);
+}
+
+sub monitorUpdateEventDetailsHandler
+{
+    my ($kernel, $heap, $session, $updates) = @_[KERNEL, HEAP, ARG0, ARG1];
+    my $self = $heap->{'self'};
+
+    my $container      = $self->{'MAIN_SESSION_ALIAS'};
+    my $sendHandler    = $self->{'SEND_HANDLER'};
+    my $monitorAddress = $self->{'MONITOR_ADDRESS'};
+
+    $updates = encode_json $updates;
+
+    my $eventUpdates = {
+                    'to'    => $monitorAddress,
+                    'info'  => {
+                                 'command'   => 'updateEventDetails',
+                                 'session'   => $session,
+                                 'updates'   => $updates,
+                               },
+                    'noack' => 1,
+                   };
+
+    $kernel->post($container, $sendHandler, $eventUpdates);
 }
 
 "M";

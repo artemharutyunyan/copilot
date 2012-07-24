@@ -510,7 +510,7 @@ Map.prototype = {
         formatted['Succeeded jobs'] = '0 (0%)';
 
         if(total_jobs > 0)
-          formatted['Succeeded jobs'] = data.succeeded_jobs + ' (' +Math.round((total_jobs/data.succeeded_jobs)*10000)/100 + '%)';
+          formatted['Succeeded jobs'] = data.succeeded_jobs + ' (' + Math.round((total_jobs/data.succeeded_jobs)*10000)/100 + '%)';
       } else {
         formatted['Component'] = data.agent_data.component;
       }

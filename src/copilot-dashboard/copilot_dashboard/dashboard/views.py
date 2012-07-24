@@ -72,14 +72,14 @@ def connections(request):
 
   query = None
   if request.GET.get('allactive', 'false') == 'true':
-    query = {'connected': True}
+    query = {'connected': True, 'agent_data.component': 'agent'}
   else:
     try:
       start = datetime.fromtimestamp(int(request.GET['from'])/1000)
     except KeyError, e:
       return json({'error': True}, 400)
 
-    query = {'updated_at': {'$gte': start}}
+    query = {'updated_at': {'$gte': start}, 'agent_data.component': 'agent'}
 
   for doc in collection.find(query, {'_id': 1, 'loc': 1}):
     doc['loc'] = [coord + random()*0.0004 for coord in doc['loc']]
