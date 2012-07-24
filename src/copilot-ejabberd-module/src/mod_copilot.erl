@@ -3,6 +3,7 @@
 -behaviour(gen_server).
 
 -define(JID, "mod_copilot@localhost").
+-define(REPORT_INTERVAL, 60000).
 
 -include("ejabberd.hrl").
 -include("jlib.hrl").
@@ -21,7 +22,8 @@ start(Host, Opts) ->
 
   % Starts the local gen_server under supervision of ejabberd
   Proc = gen_mod:get_module_proc(Host, ?MODULE),
-  ChildSpec = {Proc, {?MODULE, start_link, [Host, Opts]},
+  ExpandedOpts = Opts ++ [{host, Host}],
+  ChildSpec = {Proc, {?MODULE, start_link, [Host, ExpandedOpts]},
                      permanent,
                      1000,
                      worker,
@@ -51,10 +53,10 @@ on_unset_presence(User, Host, Resource, _Status) ->
   handle_presence(disconnect, {User, Host, Resource}, null).
 
 %@doc Handles presence stanzas sent by users
-handle_presence(UserState, {_User, Host, _Resource} = JID, IPAddress) ->
+handle_presence(UserState, JID, IPAddress) ->
   % Processes the stanza in the gen_server
   gen_server:cast(?MODULE, {UserState, JID, IPAddress}),
-  report_event(Host, atom_to_list(UserState)),
+  %report_event(Host, atom_to_list(UserState)),
   ok.
 
 %%% gen_server %%%
@@ -62,50 +64,53 @@ start_link(_Host, Opts) ->
   gen_server:start_link({local, ?MODULE}, ?MODULE, Opts, []).
 
 init(Args) ->
-  application:start(mongodb),
   application:start(egeoip),
 
-  Host = case proplists:get_value(mongodb, Args) of
-    undefined -> {localhost, 27017};
-    Value -> Value
-  end,
-  {ok, Conn} = mongo:connect(Host),
+  %timer:send_interval(?REPORT_INTERVAL, connected_users_interval),
+  Timer = erlang:start_timer(?REPORT_INTERVAL, self(), []),
 
-  State = [{opts, Args},   % Module's settings, as defined in the ejabberd.cfg
-           {mongo, Conn}   % MongoDB connection
+  State = [{opts, Args},         % Module's settings, as defined in ejabberd.cfg
+           {reportTimer, Timer}  % Report timer
           ],
   {ok, State}.
 
 handle_call(_Request, _From, State) ->
-  Reply = ok,
-  {reply, Reply, State}.
+  {reply, ok, State}.
 
 %@doc Handles cases when agents connect and disconnect from the server
 handle_cast({connect, JID, IPAddress}, State) ->
-  Doc = doc_create_connection(JID, IPAddress),
-  mongo_do(State, copilot, fun () -> mongo:save(connections, Doc) end);
-handle_cast({disconnect, {User, Host, Resource} = JID, _IPAddress}, State) ->
-  mongo_do(State, copilot, fun () ->
-    Cursor = mongo:find(connections, {user, bson:utf8(User),
-                                      host, bson:utf8(Host),
-                                      resource, bson:utf8(Resource),
-                                      connected, true}),
-    case doc_close_connection(mongo:next(Cursor)) of
-      {ok, NewDoc} -> mongo:save(connections, NewDoc);
-      {failure, Reason} ->
-        ?DEBUG("Failed to mark connection from ~p as closed: ~p", [JID, Reason]),
-        failure
-    end,
-    mongo:close_cursor(Cursor)
-  end);
+  Opts = proplists:get_value(opts, State),
+  Host = proplists:get_value(host, Opts),
+  store_event_details(Host, create_event_details(JID, IPAddress)),
+  {noreply, State};
+handle_cast({disconnect, {User, _Host, _Resource} = _JID, _IPAddress}, State) ->
+  Opts = proplists:get_value(opts, State),
+  Host = proplists:get_value(host, Opts),
+  AgentData = parse_component_jid(User),
+  case proplists:get_value(uuid, AgentData) of
+    undefined -> noop;
+    UUID -> update_event_details(Host, UUID, {struct, [{"$set", {struct, [
+                                                                          {connected, false}
+                                                                         ]}
+                                                      }]})
+  end,
+  {noreply, State};
 handle_cast(_Msg, State) ->
   {noreply, State}.
 
+%@doc Periodically reports the number of connected users to Co-Pilot monitor
+handle_info({timeout, _Ref, _Msg}, State) ->
+  Opts = proplists:get_value(opts, State),
+  Host = proplists:get_value(host, Opts),
+  Sessions = erlang:length(ejabberd_sm:dirty_get_sessions_list()),
+  ?DEBUG("Reporting number of connected machines to Co-Pilot Monitor (~p)", [Sessions]),
+  report_event(Host, "connected", integer_to_list(Sessions), "value"),
+  erlang:start_timer(?REPORT_INTERVAL, self(), []),
+  {noreply, State};
 handle_info(_Info, State) ->
   {noreply, State}.
 
 terminate(_Reason, _State) ->
-  application:stop(mongodb),
   application:stop(egeoip),
   ok.
 
@@ -121,26 +126,8 @@ ucfirst([First|Rest]) -> string:to_upper(lists:nth(1, io_lib:format("~c", [First
 timestamp() -> timestamp(now()).
 timestamp({M, S, _}) -> M*1000000 + S.
 
-%@doc Mongo driver invalidates the connection on every error,
-mongo_reconnect(State) ->
-  mongo:disconnect(proplists:get_value(mongo, State)),
-  Opts = proplists:get_value(opts, State),
-  Host = case proplists:get_value(mongodb, Opts) of
-    undefined -> {localhost, 27017};
-    Value -> Value
-  end,
-  {ok, NewConn} = mongo:connect(Host),
-  proplists:delete(mongo, State) ++ [{mongo, NewConn}].
-
-%@doc Wrapper around mongo:do/5 which is too error-sensitive
-mongo_do(State, Table, Op) ->
-  Conn = proplists:get_value(mongo, State),
-  case mongo:do(safe, master, Conn, Table, Op) of
-    {ok, _} -> {noreply, State};
-    {failure, Failure} ->
-      ?DEBUG("MongoDB operation failed with: ~p", [Failure]),
-      {noreply, mongo_reconnect(State)}
-  end.
+%@doc Converts terms into a JSON string
+to_json(X) -> lists:flatten(mochijson:encode(X)).
 
 %@doc Returns geosplatial information for given IP
 lookup_ip(null) -> [{latitude, 0.0}, {longitude, 0.0}];
@@ -152,33 +139,25 @@ lookup_ip(IPAddress) ->
 %@doc Parses JID (username part) of an agent (ex.: agent_s-10829_1_7_18225d4f-e3f7-4c18-9a18-d6c06992d272_-g)
 parse_component_jid(User) ->
   case string:tokens(User, "_") of
-    ["agent"|_] = Props -> lists:zip([component, id, cpus, rev, uuid, ukn], lists:map(fun bson:utf8/1, Props));
-    [Component|_] -> [{component, bson:utf8(Component)}]
+    ["agent"|_] = Props -> lists:zip([component, id, cpus, rev, uuid, ukn], Props);
+    [Component|_] -> [{component, Component}]
   end.
 
 %@doc Creates a MonoDB document describing the connection
-doc_create_connection({User, Host, Resource}, IPAddress) ->
+create_event_details({User, Host, Resource}, IPAddress) ->
   GeoData = lookup_ip(IPAddress),
   Lng = proplists:get_value(longitude, GeoData),
   Lat = proplists:get_value(latitude, GeoData),
-  % Converts a list of tuples ([{x, Val}]) into a list of lists ([[x, Val]]) and flattens it ([x, Val]) for BSON
-  AgentData = erlang:list_to_tuple(lists:flatmap(fun erlang:tuple_to_list/1, parse_component_jid(User))),
+  AgentData = parse_component_jid(User),
 
-  {user,         bson:utf8(User),
-   host,         bson:utf8(Host),
-   resource,     bson:utf8(Resource),
-   loc,          [Lng, Lat],
-   agent_data,   AgentData,
-   connected_at, bson:timenow(),
-   connected,    true}.
-
-%@doc Marks connection as closed and appends data extracted from agent's JID
-doc_close_connection({}) -> {failure, nosession};
-doc_close_connection({Doc}) ->
-  NewData = {connected, false,
-             disconnected_at, bson:timenow()},
-  NewDoc = bson:merge(NewData, Doc),
-  {ok, NewDoc}.
+  {struct, [{user,           User},
+            {host,           Host},
+            {resource,       Resource},
+            {loc,            {array, [Lng, Lat]}},
+            {agent_data,     {struct, AgentData}},
+            {succeeded_jobs, 0},
+            {failed_jobs,    0},
+            {connected,     true}]}.
 
 %@doc Sends an message as mod_copilot@localhost and performs base64-encoding of the attributes
 route_to_copilot_component(To, Xml) -> route_to_copilot_component(?JID, To, Xml).
@@ -227,6 +206,21 @@ report_event(Host, Event) ->
 %@doc Sends a reportEvent{Type} command to the Monitor
 report_event(Host, Event, Value, Type) ->
   To = gen_mod:get_module_opt(Host, ?MODULE, monitor_jid, "monitor@localhost"),
-  XmlBody = wrap_event_command(To, prepare_event_command(Event, Value, Type, Host)),
+  XmlBody = wrap_event_command(To, prepare_event_command(Event, Type, Value, Host)),
+  route_to_copilot_component(To, XmlBody),
+  ok.
+
+store_event_details(Host, Details) ->
+  To = gen_mod:get_module_opt(Host, ?MODULE, monitor_jid, "monitor@localhost"),
+  XmlBody = wrap_event_command(To, [{"command", "storeEventDetails"},
+                                    {"details", to_json(Details)}]),
+  route_to_copilot_component(To, XmlBody),
+  ok.
+
+update_event_details(Host, Session, Updates) ->
+  To = gen_mod:get_module_opt(Host, ?MODULE, monitor_jid, "monitor@localhost"),
+  XmlBody = wrap_event_command(To, [{"command", "updateEventDetails"},
+                                    {"session", Session},
+                                    {"updates", to_json(Updates)}]),
   route_to_copilot_component(To, XmlBody),
   ok.

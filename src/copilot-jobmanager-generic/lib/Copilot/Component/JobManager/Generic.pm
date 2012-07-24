@@ -155,8 +155,8 @@ sub _loadConfig
 
     # Require that a file exists before sending a job
     $self->{'JOB_REQUIRE_FILE'} = ($options->{'COMPONENT_OPTIONS'}->{'JobRequireFile'} || undef);
-  
-    # Check if 'storage-only' mode is on 
+
+    # Check if 'storage-only' mode is on
     $self->{'STORAGE_ONLY_ON'} = ($options->{'COMPONENT_OPTIONS'}->{'StorageOnlyOn'} || undef);
 
     # Check is 'queue-only' mode is on
@@ -233,7 +233,7 @@ sub componentProcessInputHandler
     }
     elsif ($input->{'command'} eq 'want_getJob')
     {
-        if ($self->{'STORAGE_ONLY_ON'}) 
+        if ($self->{'STORAGE_ONLY_ON'})
         {
           $kernel->post ($container, $logHandler, 'Ignored the "want_getJob" request (StorageOnlyMode enabled)', 'debug');
           return;
@@ -243,7 +243,7 @@ sub componentProcessInputHandler
     }
     elsif ($input->{'command'} eq 'getJob')
     {
-        if ($self->{'STORAGE_ONLY_ON'}) 
+        if ($self->{'STORAGE_ONLY_ON'})
         {
           $kernel->post ($container, $logHandler, 'Ignored the "getJob" request (StorageOnlyMode enabled)', 'debug');
           return;
@@ -254,7 +254,7 @@ sub componentProcessInputHandler
     }
     elsif ($input->{'command'} eq 'want_getJobOutputDir')
     {
-        if ($self->{'QUEUE_ONLY_ON'}) 
+        if ($self->{'QUEUE_ONLY_ON'})
         {
           $kernel->post ($container, $logHandler, 'Ignored the "want_getJobOutputDir" request (QueueOnlyMode enabled)', 'debug');
           return;
@@ -265,7 +265,7 @@ sub componentProcessInputHandler
     }
     elsif ($input->{'command'} eq 'getJobOutputDir')
     {
-        if ($self->{'QUEUE_ONLY_ON'}) 
+        if ($self->{'QUEUE_ONLY_ON'})
         {
           $kernel->post ($container, $logHandler, 'Ignored the "getJobOutputDir" request (QueueOnlyMode enabled)', 'debug');
           return;
@@ -338,6 +338,7 @@ sub componentJobDoneHandler
     my $logHandler          = $self->{'LOG_HANDLER'};
     my $sendHandler         = $self->{'SEND_HANDLER'};
     my $reportValueHandler  = $self->{'MONITOR_VALUE_HANDLER'};
+    my $updateEventDetails  = $self->{'MONITOR_UPDATE_DETAILS_HANDLER'};
 
     my $jobID       = $input->{'jobID'};
     my $exitCode    = $input->{'exitCode'} + 0;
@@ -382,7 +383,21 @@ sub componentJobDoneHandler
 
     my $jobDuration = $finishedAt - ($jmJobData->{'startedAt'} || $finishedAt);
     my $jobStatus   = ($exitCode == 0) ? 'succeeded' : 'failed';
-    $kernel->post ($container, $reportValueHandler, "job.$jobStatus", $jobDuration, 'duration'); 
+    $kernel->post ($container, $reportValueHandler, "job.$jobStatus", $jobDuration, 'duration');
+
+    my $agentData = Copilot::Util::parseAgentJID($input->{'from'});
+    if ($agentData->{'component'} eq 'agent')
+    {
+        my $contributedTime = $jmJobData->{'wallTime'} || 0;
+        my $updates = {
+                        '$inc' => {
+                                    "${jobStatus}_jobs" => 1,
+                                    'contributed_time' => $contributedTime,
+                                  },
+                      };
+
+        $kernel->post($container, $updateEventDetails, $agentData->{'uuid'}, $incCounters);
+    }
 }
 
 #
@@ -424,7 +439,7 @@ sub componentWantGetJobHandler
 
     my $r = Redis->new(server => $self->{'REDIS_HOST'}.":".$self->{'REDIS_PORT'});
 
-    my $f; 
+    my $f;
     ($f, undef) = split ('@', $input->{'from'});
 
     #$self->{'agentList'} = {} if not defined ($self->{'agentList'});
@@ -432,22 +447,22 @@ sub componentWantGetJobHandler
     my $lastSeen = $r->get("agentseen::".$f);
     my $t = time();
 
-    if (defined ($lastSeen) and ($t - $lastSeen) < 60) 
-    {   
+    if (defined ($lastSeen) and ($t - $lastSeen) < 60)
+    {
         $kernel->post($container, $logHandler, "Agent ".$input->{'from'}." sending job requests way to often. Putting bastard to sleep.", 'info');
-     
-        my $info = { 
+
+        my $info = {
                     'to'   => $input->{'from'},
-                    'info' => { 
+                    'info' => {
                                 'command' => 'sleep',
                               },
                    };
-    
+
         #$kernel->post($container, 'logstalgia', $input->{'from'}, 'want_getJob', 'sleep', 100);
         defined ($input->{'send_back'}) and ($info->{'send_back'} =  $input->{'send_back'});
-        $kernel->post ($container, $sendHandler, $info);  
+        $kernel->post ($container, $sendHandler, $info);
         return;
-    }   
+    }
 
     #$self->{'agentList'}->{$input->{'from'}} = $t;
     $r->set("agentseen::".$f, $t);

@@ -8,7 +8,7 @@ exchange are formatted using XML. The messages are enclosed in \emph{$<$message$
 base64 \cite{rfc3548} encoded.
 
 Each message body contains the \emph{'info'} tag. \emph{'info'} has the \emph{'command'} attribute, which contains the command needed
-to be performed by the peer (e.g. Agent sends 'jobDone' command when it has finished executing the job and uploading files). The \emph{'info'} tag also contains other attributes necessary to perform the command. Below we present the list of commands which agents send along with the appropriate response commands which they expect in response. 
+to be performed by the peer (e.g. Agent sends 'jobDone' command when it has finished executing the job and uploading files). The \emph{'info'} tag also contains other attributes necessary to perform the command. Below we present the list of commands which agents send along with the appropriate response commands which they expect in response.
 
 Every message by default should be acknowledged by the recipient by sending the \emph{ack} message, with empty \emph{'body'} tag. The ID of the message being acknowledged is set as the value of \emph{'ack'} attribute.
 Example:
@@ -410,7 +410,29 @@ Unlike \emph{'reportEvent'} whose values are sampled and sent every few seconds 
   \item \emph{value} - numerical value representing the event
 \end{itemize}
 
-\newpage 
+
+\subsubsection{\indexed{storeEventDetails}}
+\label{sct:storeeventdetails}
+Used for storing data (key-value pairs) related to a specific event (e.g. number of CPUs in use, geographical location, etc.).
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'reportEventValue'
+  \item \emph{details} - JSON encoded object representing the details of an event
+\end{itemize}
+
+\subsubsection{\indexed{updateEventDetails}}
+\label{sct:updateeventdetails}
+Used for updating data related to an event.
+
+\emph{\bf $<$info$>$ tag attributes and their values}
+\begin{itemize}
+  \item \emph{command} - 'updateEventValue'
+  \item \emph{event} - ID of an event
+  \item \emph{updates} - JSON encoded object representing the updated details
+\end{itemize}
+
+\newpage
 \subsection{System introspection}
 
 \begin{figure}
@@ -460,7 +482,7 @@ This message is sent as a reply to \emph{'Heartbeat:getStatus'}.
 \begin{itemize}
   \item \emph{command} - 'haveStatus'
   \item \emph{component} - component whose status is being reported
-  \item \emph{status} - a string describing the component's status 
+  \item \emph{status} - a string describing the component's status
 \end{itemize}
 
 
@@ -471,7 +493,7 @@ Heartbeat service may occasional send the ping command which just tests the avai
 
 \emph{\bf $<$info$>$ tag attributes and their values}
 \begin{itemize}
-  \item \emph{command} - 'Heartbeat:ping' 
+  \item \emph{command} - 'Heartbeat:ping'
 \end{itemize}
 
 \subsubsection{\indexed{pong}}
@@ -541,7 +563,7 @@ The following list contains paths of events which are being reported by Co-Pilot
 
 \begin{itemize}
   \item \emph{copilot.monitor.updates} - number of updates logged per sample
-  \item \emph{copilot.jobmanager.(type).(jid).job.succeeded} - job completed successfully 
+  \item \emph{copilot.jobmanager.(type).(jid).job.succeeded} - job completed successfully
   \item \emph{copilot.jobmanager.(type).(jid).job.failed} - job exited with an error
   \item \emph{copilot.jobmanager.(type).(jid).queuedJobs} - size of the job queue
   \item \emph{copilot.jobmanager.(type).(jid).error.invalidJobId} - Manager received an request with non-existing job

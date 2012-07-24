@@ -1,0 +1,89 @@
+#!/usr/bin/env python
+
+import sys
+import os
+import subprocess
+from optparse import OptionParser
+import copilot_dashboard
+from copilot_dashboard.local_settings import SETTINGS
+
+PID_FILE = SETTINGS.get('PID_FILE', '/tmp/copilot-dashboard.pid')
+
+def check_pidfile():
+  return os.path.exists(PID_FILE)
+
+def get_pid():
+  pidfile = open(PID_FILE, 'r')
+  pid = pidfile.readlines()[0].strip()
+  pidfile.close()
+  return pid
+
+def start():
+  if check_pidfile() == True:
+    pid = get_pid()
+    print "copilot-dashboard is already running (%s)" % pid
+    exit(1)
+
+  iface = SETTINGS.get('SERVER_HOST', '0.0.0.0')
+  port = SETTINGS.get('SERVER_PORT', '3274')
+  bind = iface + ':' + port
+  print ("Starting Co-Pilot Dashboard on %s..." % bind)
+
+  mod_dir = os.path.dirname(copilot_dashboard.__file__)
+  command = ["gunicorn_django", "--daemon",
+                                "--workers=" + SETTINGS.get('GUNICORN_WORKERS', '2'),
+                                "--bind=" + bind,
+                                "--pid=" + PID_FILE,
+                                "--log-level=" + SETTINGS.get('LOG_LEVEL', 'info'),
+                                "--log-file=" + SETTINGS.get('LOG_FILE', '/tmp/copilot-dashboard.log'),
+                                mod_dir + "/settings.py"]
+  subprocess.call(command)
+
+def stop():
+  if check_pidfile() == False:
+    print "copilot-dashboard isn't running (PID file: %s)" % PID_FILE
+    exit(1)
+
+  pid = get_pid()
+  print "Stopping copilot-dashboard (%s)" % pid
+  return os.system("kill " + pid)
+
+def status():
+  if check_pidfile() == True:
+    pid = get_pid()
+
+    iface = SETTINGS.get('SERVER_HOST', '0.0.0.0')
+    port = SETTINGS.get('SERVER_PORT', '3274')
+
+    print "copilot-dashboard is running"
+    print "  PID: %s" % pid
+    print "  Host: %s" % iface
+    print "  Port: %s" % port
+  else:
+    print "copilot-dashboard is not running"
+
+def help():
+  print "Usage: copilot-dashboard [command]"
+  print ""
+  print "Available commands:"
+  print "\tstart\tStarts copilot-dashboard using configuration specified in /etc/copilot/copilot-dashboard.conf"
+  print "\tstop\tStops copilot-dashboard"
+  print "\tstatus\tPrints information about currently running instance (if any)"
+  print "\thelp\tShows this message"
+
+COMMANDS = {
+  'start':  start,
+  'stop':   stop,
+  'status': status,
+  'help':   help
+}
+
+if __name__ == '__main__':
+  try:
+    action = sys.argv[1]
+    if action in COMMANDS:
+      COMMANDS[action]()
+    else:
+      help()
+  except:
+    help()
