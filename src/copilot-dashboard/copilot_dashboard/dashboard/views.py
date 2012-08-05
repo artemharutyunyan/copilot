@@ -1,5 +1,5 @@
 import httplib2
-from datetime import datetime
+import datetime
 from urllib import urlencode
 from random import random
 
@@ -10,7 +10,7 @@ from django.conf import settings
 import bson.json_util
 from bson.objectid import ObjectId
 
-from models import get_collection
+import models as DB
 from copilot_dashboard.settings import SETTINGS
 
 HTTP = httplib2.Http("/tmp/httplib2-cache")
@@ -67,7 +67,7 @@ def connections(request):
     * 200 - OK
     * 400 - Missing query parameter (from)
   """
-  collection = get_collection('connections')
+  collection = DB.get_collection('connections')
   docs = []
 
   query = None
@@ -75,7 +75,7 @@ def connections(request):
     query = {'connected': True, 'agent_data.component': 'agent'}
   else:
     try:
-      start = datetime.fromtimestamp(int(request.GET['from'])/1000)
+      start = datetime.datetime.fromtimestamp(int(request.GET['from'])/1000)
     except KeyError, e:
       return json({'error': True}, 400)
 
@@ -97,11 +97,11 @@ def connection_info(request, id):
     * 200 - OK
     * 404 - Given ID did not match any documents
   """
-  collection = get_collection('connections')
-  doc = collection.find_one(ObjectId(id), {'_id': 0, 'loc': 0})
+  doc = DB.get_connection(id)
   if not doc:
     return json({'error': True}, 404)
   else:
+    doc['contributions'] = DB.get_contributions(doc['agent_data']['id'])
     return json(doc)
 
 ### Utilites ###

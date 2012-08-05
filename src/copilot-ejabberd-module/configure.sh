@@ -54,4 +54,4 @@ cat > rebar.config << EOF
 {clean_files, ["ebin/*.beam", "erl_crash.dump"]}.
 EOF
 
-echo " * Done. Run 'make get-deps && sudo make install-deps && make compile && sudo make install' to install the module."
+echo " * Done. Run 'make build-deps && sudo make install-deps && make compile && sudo make install' to install the module."

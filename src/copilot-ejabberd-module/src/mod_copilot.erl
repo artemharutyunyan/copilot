@@ -136,10 +136,17 @@ lookup_ip(IPAddress) ->
   [_|Data] = erlang:tuple_to_list(element(2, egeoip:lookup(IPAddress))),
   lists:zip(egeoip:record_fields(), Data).
 
-%@doc Parses JID (username part) of an agent (ex.: agent_s-10829_1_7_18225d4f-e3f7-4c18-9a18-d6c06992d272_-g)
+%@doc Parses JID (username part) of an agent (ex.: agent_s-10829_1_7_18225d4f-e3f7-4c18-9a18-d6c06992d272_-g). If ID is missing UUID will be used instead.
 parse_component_jid(User) ->
   case string:tokens(User, "_") of
-    ["agent"|_] = Props -> lists:zip([component, id, cpus, rev, uuid, ukn], Props);
+    ["agent"|_] = Props ->
+      Data = lists:zip([component, id, cpus, rev, uuid, ukn], Props),
+      Id = proplists:get_value(id, Data),
+      case lists:last(Id) of
+          $- ->
+      lists:keyreplace(id, 1, Data, {id, Id ++ proplists:get_value(uuid, Data)});
+          _Otherwise -> Data
+      end;
     [Component|_] -> [{component, Component}]
   end.
 
@@ -150,14 +157,15 @@ create_event_details({User, Host, Resource}, IPAddress) ->
   Lat = proplists:get_value(latitude, GeoData),
   AgentData = parse_component_jid(User),
 
-  {struct, [{user,           User},
-            {host,           Host},
-            {resource,       Resource},
-            {loc,            {array, [Lng, Lat]}},
-            {agent_data,     {struct, AgentData}},
-            {succeeded_jobs, 0},
-            {failed_jobs,    0},
-            {connected,     true}]}.
+  {struct, [{user,             User},
+            {host,             Host},
+            {resource,         Resource},
+            {loc,              {array, [Lng, Lat]}},
+            {agent_data,       {struct, AgentData}},
+            {succeeded_jobs,   0},
+            {failed_jobs,      0},
+            {contributed_time, 0},
+            {connected,        true}]}.
 
 %@doc Sends an message as mod_copilot@localhost and performs base64-encoding of the attributes
 route_to_copilot_component(To, Xml) -> route_to_copilot_component(?JID, To, Xml).

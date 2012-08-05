@@ -140,6 +140,42 @@ window.Dashboard = {
   }
 };
 
+var DEFAULT_CHART_OPTIONS = {
+    chart: {
+      zoomType: 'x',
+      backgroundColor: 'transparent'
+    },
+    credits: {enabled: false},
+    labels: {
+      style: {color: '#fff'}
+    },
+    title: {text: null},
+    xAxis: {
+      lineColor: '#888',
+      gridLineColor: '#aaa'
+    },
+    yAxis: {
+      title: {text: null},
+      lineColor: '#888',
+      gridLineColor: '#aaa'
+    },
+    plotOptions: {
+      series: {
+        allowPointSelect: true,
+        marker: {
+          enabled: false,
+          radius: 2,
+          states: {hover: {enabled: true}}
+        }
+      }
+    },
+    legend: {
+      enabled: false,
+      borderWidth: 0
+    },
+    series: []
+  };
+
 function Graph(options) {
   this.options = options;
   this.id = options.id || Graph.COUNT++;
@@ -152,11 +188,6 @@ function Graph(options) {
 
   var chartOptions = {
     chart: {
-      renderTo: 'g-' + this.id,
-      defaultSeriesType: options.type,
-      events: {
-        load: this.refresh.bind(this)
-      },
       zoomType: 'x',
       backgroundColor: 'transparent'
     },
@@ -165,16 +196,19 @@ function Graph(options) {
       style: {color: '#fff'}
     },
     title: {text: null},
-    xAxis: {},
+    xAxis: {
+      lineColor: '#888',
+      gridLineColor: '#aaa'
+    },
     yAxis: {
       title: {text: null},
-      gridLineColor: '#2F333E'
+      lineColor: '#888',
+      gridLineColor: '#aaa'
     },
     plotOptions: {
       series: {
         allowPointSelect: true,
         marker: {
-          enabled: options.type === 'scatter',
           radius: 2,
           states: {hover: {enabled: true}}
         }
@@ -186,6 +220,22 @@ function Graph(options) {
     },
     series: []
   };
+  var chartOptions = $.extend(true, {}, DEFAULT_CHART_OPTIONS,  {
+    chart: {
+      renderTo: 'g-' + this.id,
+      defaultSeriesType: options.type,
+      events: {
+        load: this.refresh.bind(this)
+      }
+    },
+    plotOptions: {
+      series: {
+        marker: {
+          enabled: options.type === 'scatter'
+        }
+      }
+    }
+  });
 
   if('minValue' in options)
     chartOptions.yAxis.min = options.minValue;
@@ -499,18 +549,21 @@ Map.prototype = {
     this.getConnectionInfo(marker.getTitle(), function (data) {
       var display = '<table class="mapinfo">',
           total_jobs = data.succeeded_jobs + data.failed_jobs,
+          last_seen = data.updated_at.toString(),
           formatted = {
-                    'Status': data.connected ? 'Online' : 'Offline',
-                    'Last seen': data.updated_at,
-                 };
+            'Status': data.connected ? 'Online' : 'Offline',
+            'Last seen': '<abbr title="' + last_seen + '">' + last_seen.split(' ')[1] + '</abbr>',
+          };
 
       if(data.agent_data.component == 'agent') {
-        formatted['Completed jobs'] = total_jobs;
-        formatted['Contributed CPUs'] = data.agent_data.cpus || "Unknown";
-        formatted['Succeeded jobs'] = '0 (0%)';
+        formatted['CPUs'] = data.agent_data.cpus || "N/A";
+        formatted['CPU time'] = data.contributed_time + "s";
+        formatted['Jobs processed'] = total_jobs;
 
-        if(total_jobs > 0)
-          formatted['Succeeded jobs'] = data.succeeded_jobs + ' (' + Math.round((total_jobs/data.succeeded_jobs)*10000)/100 + '%)';
+        if(total_jobs > 0) {
+          formatted['Succeeded jobs'] = data.succeeded_jobs;// + ' (' + Math.round((data.succeeded_jobs/total_jobs)*10000)/100 + '%)';
+          formatted['Failed jobs'] = data.failed_jobs;
+        }
       } else {
         formatted['Component'] = data.agent_data.component;
       }
@@ -518,8 +571,24 @@ Map.prototype = {
       for(var field in formatted)
         display += "<tr><td>" + field + ":</td><td> " + formatted[field] + "</td></tr>";
 
-      display += "</table>";
+      display += '</table><div id="contrib_graph"></div>';
       info.setContent(display);
+
+      if(data.agent_data.component === 'agent')
+        new Highcharts.Chart($.extend(true, {}, DEFAULT_CHART_OPTIONS, {
+          chart: {
+            renderTo: 'contrib_graph',
+          },
+          yAxis: {showFirstLabel: false, showLastLabel: 0},
+          xAxis: {type: 'datetime'},
+          series: [{
+            name: 'Succeeded jobs',
+            data: data.contributions.succeeded
+          }, {
+            name: 'Failed jobs',
+            data: data.contributions.failed
+          }]
+        }));
     });
   },
   getConnectionInfo: function (id, cb) {
