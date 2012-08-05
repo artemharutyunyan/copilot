@@ -388,7 +388,7 @@ sub componentJobDoneHandler
     my $agentData = Copilot::Util::parseAgentJID($input->{'from'});
     if ($agentData->{'component'} eq 'agent')
     {
-        my $contributedTime = $jmJobData->{'wallTime'} || 0;
+        my $contributedTime = $jmJobData->{'wallTime'} + 0.0;
         my $updates = {
                         '$inc' => {
                                     "${jobStatus}_jobs" => 1,
@@ -396,7 +396,7 @@ sub componentJobDoneHandler
                                   },
                       };
 
-        $kernel->post($container, $updateEventDetails, $agentData->{'uuid'}, $incCounters);
+        $kernel->post($container, $updateEventDetails, $agentData->{'uuid'}, $updates);
     }
 }
 

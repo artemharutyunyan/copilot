@@ -979,7 +979,7 @@ sub componentExecuteJobCommandHandler
 
     $kernel->sig(CHLD => 'jobWheelFinished');
 
-    # create stdout, stderr, walltime and resources files in working directory of the job
+    # create stdout, stderr and resources files in working directory of the job
     # beacuse AliEn expects them to be there
     my $wd =  $heap->{$jobID}->{'workdir'};
     system ("touch $wd/stdout $wd/stderr $wd/resources");
@@ -1071,12 +1071,10 @@ sub jobWheelFinishedHandler
     $fh = $heap->{$jobID}->{'STDERR_HANDLE'};
     $fh and close $fh;
 
-    my $workdir = $heap->{$jobID}->{'workdir'};
-    open WALLTIME, "< $workdir/_walltime_";
-    my $walltime = <WALLTIME>;
+    my $wallfile = $heap->{$jobID}->{'workdir'} . "/_walltime_";
+    my $walltime = `tail -n 1 $wallfile`;
     chomp $walltime;
-    close WALLTIME;
-    `rm $workdir/_walltime_`;
+    `rm $wallfile`;
     $heap->{$jobID}->{'wallTime'} = $walltime;
 
     $kernel->yield('componentLogMsg', "Execution of child process (PID: $childPID) finished with \'$exitCode\' in $walltime seconds");

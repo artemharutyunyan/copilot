@@ -955,7 +955,8 @@ sub monitorStoreEventDetailsHandler
     my $sendHandler    = $self->{'SEND_HANDLER'};
     my $monitorAddress = $self->{'MONITOR_ADDRESS'};
 
-    $details = encode_json $details;
+    my $json = JSON->new->allow_blessed->convert_blessed;
+    $details = $json->encode($details);
 
     my $eventDetails = {
                     'to'    => $monitorAddress,
@@ -978,7 +979,8 @@ sub monitorUpdateEventDetailsHandler
     my $sendHandler    = $self->{'SEND_HANDLER'};
     my $monitorAddress = $self->{'MONITOR_ADDRESS'};
 
-    $updates = encode_json $updates;
+    my $json = JSON->new->allow_blessed->convert_blessed;
+    $updates = $json->encode($updates);
 
     my $eventUpdates = {
                     'to'    => $monitorAddress,
