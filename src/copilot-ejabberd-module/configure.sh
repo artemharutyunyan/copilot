@@ -27,17 +27,14 @@ install:
 build-deps:
 	\$(REBAR) get-deps \$(REBAR_FLAGS)
 	cd deps/egeoip && make
-	cd deps/mongodb && ./rebar get-deps && make
+	cd deps/mochiweb && make
 
 install-deps: build-deps
-	mkdir $ERL_DIR/egeoip-master
+	mkdir -p $ERL_DIR/egeoip-master
 	cp -R deps/egeoip/{ebin,include,priv} $ERL_DIR/egeoip-master
 
-	mkdir $ERL_DIR/mongodb-master
-	cp -R deps/mongodb/{ebin,deps,include} $ERL_DIR/mongodb-master
-
-	mkdir $ERL_DIR/bson-master
-	cp -R deps/bson/{ebin,include} $ERL_DIR/bson-master
+	mkdir -p $ERL_DIR/mochiweb-master
+	cp -R deps/mochiweb/{ebin,include} $ERL_DIR/mochiweb-master
 
 clean:
 	\$(REBAR) clean \$(REBAR_FLAGS)
@@ -46,15 +43,15 @@ EOF
 echo " * Generating rebar.config..."
 cat > rebar.config << EOF
 {deps, [
-        {mongodb, ".*", {git, "http://github.com/mongodb/mongodb-erlang.git", "HEAD"}},
-        {egeoip, ".*", {git, "http://github.com/mochi/egeoip.git", "HEAD"}}
-       ]}.
+				{egeoip, ".*", {git, "http://github.com/mochi/egeoip.git", "HEAD"}},
+				{mochiweb, ".*", {git, "http://github.com/mochi/mochiweb.git", "HEAD"}}
+			 ]}.
 {lib_dirs, ["deps"]}.
 {erl_opts, [debug_info,
-            fail_on_warning,
-            {i, "$EJD_DIR/include"}
-           ]}.
+						fail_on_warning,
+						{i, "$EJD_DIR/include"}
+					 ]}.
 {clean_files, ["ebin/*.beam", "erl_crash.dump"]}.
 EOF
 
-echo " * Done. Run 'make' to install the module."
+echo " * Done. Run 'make build-deps && sudo make install-deps && make compile && sudo make install' to install the module."

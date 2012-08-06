@@ -4,13 +4,13 @@ package Copilot::Component::Agent;
 
 =head1 DESCRIPTION
 
-This class implements the JobAgent of the Copilot system, it inherits from Copilot::Component (for general information 
-about the Components in Copilot please refer to Copilot::Component documentation). The component must be instantiated within 
-one of the component containers (e.g. Copilot::Container::XMPP). The following options must be provided during 
+This class implements the JobAgent of the Copilot system, it inherits from Copilot::Component (for general information
+about the Components in Copilot please refer to Copilot::Component documentation). The component must be instantiated within
+one of the component containers (e.g. Copilot::Container::XMPP). The following options must be provided during
 instantiation via 'ComponentOptions' parameter:
 
     JMAddress - Address of the Job Manager component (can be either host:port combination or Jabber ID)
-    WorkDir   - Temporary directory where the agent will keep files of the jobs 
+    WorkDir   - Temporary directory where the agent will keep files of the jobs
 
     Exmaple:
 
@@ -29,7 +29,7 @@ my $agent = new Copilot::Container::XMPP (
                                      SecurityModule => 'Consumer',
                                      SecurityOptions => {
                                                          KMAddress => $keyServerJID,
-                                                         TicketGettingCredential => 'blah', 
+                                                         TicketGettingCredential => 'blah',
                                                          PublicKeysFile => '/home/hartem/copilot/copilot/etc/PublicKeys.txt',
                                                         },
 
@@ -64,7 +64,7 @@ sub _init
 
 
     #
-    # Read config 
+    # Read config
     $self->_loadConfig($options);
 
     #
@@ -76,12 +76,12 @@ sub _init
                                                 $self->{'COMPONENT_INPUT_HANDLER'} =>  \&componentInputHandler,
                                                 $self->{'COMPONENT_WAKEUP_HANDLER'} => \&componentWakeUpHandler,
                                                 componentProcessInput => \&componentProcessInputHandler,
-                                                componentWantGetJob => \&componentWantGetJobHandler,	
-                                                componentGetJob => \&componentGetJobHandler,				
+                                                componentWantGetJob => \&componentWantGetJobHandler,
+                                                componentGetJob => \&componentGetJobHandler,
                                                 componentHaveGetJob => \&componentHaveGetJobHandler,
-                                                componentStopWaitingJob => \&componentStopWaitingJobHandler,    
+                                                componentStopWaitingJob => \&componentStopWaitingJobHandler,
                                                 componentStartJob => \&componentStartJobHandler,
-                                                componentDispatchJob => \&componentDispatchJobHandler, 
+                                                componentDispatchJob => \&componentDispatchJobHandler,
                                                 componentGetJobInputFiles => \&componentGetJobInputFilesHandler,
                                                     chirpGet => \&chirpGetHandler,
                                                     createJobWorkDir => \&createJobWorkDirHandler,
@@ -111,7 +111,7 @@ sub _init
                                                 componentSleepReboot => \&componentSleepRebootHandler,
                                             },
                                      args => [ $self ],
-                         ); 
+                         );
 
     return $self;
 }
@@ -125,22 +125,22 @@ sub _loadConfig
 
     # Will be used an alias for this component
     $self->{'COMPONENT_NAME'} = $options->{'COMPONENT_NAME'};
-    
+
     # Server's session alias
     ($self->{'CONTAINER_ALIAS'} = $options->{'CONTAINER_ALIAS'})
-        or die "CONTAINER_ALIAS is not specified. Can't communicate with the container\n"; 
+        or die "CONTAINER_ALIAS is not specified. Can't communicate with the container\n";
 
     # Event in server, which handles the messages sent from component to the outer world
      ($self->{'SEND_HANDLER'} = $options->{'CONTAINER_SEND_HANDLER'})
-        or die "CONTAINER_SEND_HANDLER is not specified. Can't send messages out.\n"; 
+        or die "CONTAINER_SEND_HANDLER is not specified. Can't send messages out.\n";
 
     # Event, which handles server input inside the component
-    $self->{'COMPONENT_INPUT_HANDLER'} = 'componentHandleInput';    
+    $self->{'COMPONENT_INPUT_HANDLER'} = 'componentHandleInput';
 
     # Event, which handles wake up inside the component (called once, when client is connected to the component)
     $self->{'COMPONENT_WAKEUP_HANDLER'} = 'componentHandleWakeUp';
 
-    # JM Host    
+    # JM Host
     $self->{'JOB_MANAGER_ADDRESS'} = $options->{'COMPONENT_OPTIONS'}->{'JMAddress'};
     $self->{'JOB_MANAGER_ADDRESS'} or die "Job manager address is not provided.\n";
 
@@ -149,7 +149,7 @@ sub _loadConfig
     $self->{'AGENT_WORKDIR'} || ( $self->{'AGENT_WORKDIR'} = '/tmp/agentWorkdir');
 
     # Event which handles log messages inside the server
-    $self->{'LOG_HANDLER'} = ($options->{'CONTAINER_LOG_HANDLER'} || 'logger'); 
+    $self->{'LOG_HANDLER'} = ($options->{'CONTAINER_LOG_HANDLER'} || 'logger');
 
 
 }
@@ -162,42 +162,42 @@ sub mainStopHandler
 }
 
 #
-# Called before session starts 
+# Called before session starts
 sub mainStartHandler
 {
     my ( $kernel, $heap, $self) = @_[ KERNEL, HEAP, ARG0 ];
     $heap->{'self'} = $self;
-   
+
     $kernel->alias_set ($self->{'COMPONENT_NAME'});
 
 #    $_[SESSION]->option (trace => 1);
 }
 
 #
-# Returns the name of input handler 
+# Returns the name of input handler
 sub getInputHandler
-{ 
+{
     my $self = shift;
-    return $self->{'COMPONENT_INPUT_HANDLER'}; 
+    return $self->{'COMPONENT_INPUT_HANDLER'};
 }
 
 #
-# Returns the name of wake up handler 
+# Returns the name of wake up handler
 sub getWakeUpHandler
-{ 
+{
     my $self = shift;
-    return $self->{'COMPONENT_WAKEUP_HANDLER'}; 
+    return $self->{'COMPONENT_WAKEUP_HANDLER'};
 }
 
 
 #
-# Handles wake up 
+# Handles wake up
 sub componentWakeUpHandler
 {
 
    my ($kernel, $sender, $heap) = @_[ KERNEL, SENDER, HEAP ];
 
-   my $self = $heap->{'self'}; 
+   my $self = $heap->{'self'};
 
    #
    # Save the session ID of the server
@@ -205,21 +205,21 @@ sub componentWakeUpHandler
 
    #
    # Tell JM that we are up and ask for a job
-   $kernel->yield ('componentWantGetJob'); 
+   $kernel->yield ('componentWantGetJob');
 
 
    # Write to log file
-   $kernel->yield ('componentLogMsg', "Component was waken up. Asking job manager for a job", 'info'); 
+   $kernel->yield ('componentLogMsg', "Component was waken up. Asking job manager for a job", 'info');
 
-   $self->{'COMPONENT_HAS_JOB'} = 0;	
+   $self->{'COMPONENT_HAS_JOB'} = 0;
    $self->{'COMPONENT_WAITING_JOB'} = 0;
-   $self->{'COMPONENT_HAS_OUTPUT_DIR'} = 0;	
+   $self->{'COMPONENT_HAS_OUTPUT_DIR'} = 0;
    $self->{'COMPONENT_WAITING_OUTPUT_DIR'} = 0;
    $self->{'FAILED_REQ_COUNT'} = 0;
 }
 
 #
-# Handles input from server 
+# Handles input from server
 sub componentInputHandler
 {
     my ( $kernel, $input) = @_[ KERNEL, ARG0, ARG1 ];
@@ -231,80 +231,80 @@ sub componentSlpHandler
     my ($kernel, $heap, $t)  = @_[ KERNEL, HEAP, ARG0];
 
     my $self = $heap->{'self'};
-   
+
     if ( $self->{'COMPONENT_HAS_JOB'} == 1)
-    {   
-        $kernel->yield ('componentLogMsg', "Seem to have a job running. Not going to sleep", 'info'); 
+    {
+        $kernel->yield ('componentLogMsg', "Seem to have a job running. Not going to sleep", 'info');
         return;
-    }    
+    }
 
     $kernel->yield ('componentLogMsg', "Will sleep for $t seconds and reboot after wakeup.", 'info');
     $self->{'sleepTime'} = $t;
-    $kernel->delay ('componentSleepReboot', 3); 
+    $kernel->delay ('componentSleepReboot', 3);
 }
 
 sub componentSleepRebootHandler
 {
     my $heap = $_[ HEAP ];
-    my $self = $heap->{'self'};    
+    my $self = $heap->{'self'};
     my $t = $self->{'sleepTime'};
 
      `wall The Agent is going to sleep`;
     sleep $t;
-    `/usr/bin/reboot`;  
+    `/usr/bin/reboot`;
 }
 
 #
-# Does input processing and dispatches the command (e.g. starts job) 
+# Does input processing and dispatches the command (e.g. starts job)
 sub componentProcessInputHandler
 {
     my ( $kernel, $heap, $input) = @_[ KERNEL, HEAP, ARG0];
-	my $self = $heap->{'self'};	
- 
+	my $self = $heap->{'self'};
+
     if ($input->{'command'} eq 'error')
     {
         $kernel->yield('componentLogMsg', 'Got error:'. Dumper $input);
         $kernel->delay('componentError', 2);
-        return; 
+        return;
     }
-  	 
+
     if ($input->{'command'} eq 'redirect')
     {
-        # call redirector 
-        $kernel->yield ('componentRedirect', $input); 
+        # call redirector
+        $kernel->yield ('componentRedirect', $input);
         # log
         $kernel->yield('componentLogMsg', 'Got '. $input->{'command'});
 	return;
     }
-    
+
     if ($input->{'command'} eq 'sleep')
-    {    
+    {
         my $t = int(rand(1200));
         $kernel->yield ('componentLogMsg', 'Was gently asked to sleep for '. $t . ' seconds', 'info');
-        $kernel->yield ('componentSlp', $t); 
+        $kernel->yield ('componentSlp', $t);
         return;
-    } 
+    }
 
     if ($heap->{'expectedCommand'} ne $input->{'command'})
     {
         $kernel->yield('componentLogMsg', 'Expected ' .$heap->{'expectedCommand'}. ' but got '. $input->{'command'} . '. Doing nothing', 'debug');
         return;
-    } 
+    }
     elsif ($input->{'command'} eq 'have_getJob')
     {
         # call the getJob Handler
         #$kernel->yield ('componentGetJob', $input->{'from'});
         $kernel->yield ('componentHaveGetJob', $input);
-        # log 
+        # log
         $kernel->yield('componentLogMsg', 'Got '. $input->{'command'}. ' from '. $input->{'from'});
-    }   
+    }
     elsif ($input->{'command'} eq 'runJob')
-    {  
+    {
         $self->{'COMPONENT_HAS_JOB'} = 1;
-        $self->{'COMPONENT_WAITING_JOB'} = 0;	
+        $self->{'COMPONENT_WAITING_JOB'} = 0;
         # prepare job data on the heap and pass control to the dispatcher function
         $kernel->yield('componentStartJob', $input);
-        # log 
+        # log
         $kernel->yield('componentLogMsg', 'Got '. $input->{'command'});
         $heap->{'expectedCommand'} = 'have_getJobOutputDir';
     }
@@ -312,7 +312,7 @@ sub componentProcessInputHandler
     {
         # Request real job output directory
         $kernel->yield('componentGetJobOutputDir', $input->{'from'});
-        # log 
+        # log
         $kernel->yield('componentLogMsg', 'Got '. $input->{'command'});
         $heap->{'expectedCommand'} = 'storeJobOutputDir';
     }
@@ -321,7 +321,7 @@ sub componentProcessInputHandler
         $self->{'COMPONENT_WAITING_OUTPUT_DIR'} = 0;
         # Store output dir and upload the files
         $kernel->yield('storeOutputDir', $input);
-        # log 
+        # log
         $kernel->yield('componentLogMsg', 'Got '. $input->{'command'});
     }
 
@@ -330,7 +330,7 @@ sub componentProcessInputHandler
 
 #
 # Asks for a job
-sub componentWantGetJobHandler 
+sub componentWantGetJobHandler
 {
     my ( $kernel, $heap) = @_[ KERNEL, HEAP];
 
@@ -338,17 +338,17 @@ sub componentWantGetJobHandler
 
     $self->{'wantJobTrial'} = 1 if not defined($self->{'wantJobTrial'});
 
-    # return if the agent has already beed loaded with the job 
+    # return if the agent has already beed loaded with the job
     if ($self->{'COMPONENT_HAS_JOB'} != 0 or $self->{'COMPONENT_WAITING_JOB'} != 0)
     {
         $kernel->yield ('componentLogMsg', 'Got reply for want_getJob. Purging previously scheduled requests.', 'info');
-        return; 
+        return;
     }
     else
     {
-        my $waitTime =  60 * $self->{'wantJobTrial'};                   
+        my $waitTime =  60 * $self->{'wantJobTrial'};
         $kernel->yield ('componentLogMsg', "Scheduling another want_getJob request in $waitTime seconds", 'info');
-        $self->{'wantJobTrial'} *= 2;            
+        $self->{'wantJobTrial'} *= 2;
         $kernel->delay ('componentWantGetJob', $waitTime );
         $self->{'wantJobTrial'} = 1 if $self->{'wantJobTrial'} > 60; # Reset the counter if we reached 1 hour
     }
@@ -359,9 +359,9 @@ sub componentWantGetJobHandler
     my $jdl = new Copilot::Classad::Host();
 
     my $hostname = `hostname -f`;
-    chomp $hostname;     
-   
-    my $jobRequest = {  
+    chomp $hostname;
+
+    my $jobRequest = {
                         'to'   => $self->{'JOB_MANAGER_ADDRESS'},
                         'info' =>
                                   {
@@ -369,25 +369,25 @@ sub componentWantGetJobHandler
                                     'jdl'       => $jdl->asJDL(),
                                     'agentHost' => $hostname, # needed to open access on chirp server
                                   },
-                     };  
-    $heap->{'expectedCommand'} = 'have_getJob'; 
+                     };
+    $heap->{'expectedCommand'} = 'have_getJob';
     $kernel->yield ('componentLogMsg', 'Asking '. $self->{'JOB_MANAGER_ADDRESS'}.' for an adress of the job manager');
     $kernel->post ($container, $sendHandler, $jobRequest);
 }
 
 sub componentHaveGetJobHandler
 {
-    my ($kernel, $heap, $input) = @_[ KERNEL, HEAP, ARG0 ];	
- 
+    my ($kernel, $heap, $input) = @_[ KERNEL, HEAP, ARG0 ];
+
     my $requireFile = $input->{'requireFile'};
-    my $from = $input->{'from'};    
-   
+    my $from = $input->{'from'};
+
     my $self = $heap->{'self'};
 
     if (defined($requireFile))
     {
         $kernel->yield ('componentLogMsg', "Job manager ($from) requires $requireFile to be present. Doing the check.", 'info');
-        
+
         if ( -e $requireFile)
         {
             $kernel->yield ('componentLogMsg', 'The file is present. Proceeding with the job request', 'info');
@@ -395,20 +395,20 @@ sub componentHaveGetJobHandler
         }
         else
         {
-            $self->{'FAILED_REQ_COUNT'}++;	
+            $self->{'FAILED_REQ_COUNT'}++;
             if ( $self->{'FAILED_REQ_COUNT'} > 3)
             {
                 $kernel->yield( 'componentError', 'Failed to satisfy the requirement of the Job Manager for 3 consecutive times. Will sleep and reboot.');
-                return;                
+                return;
             }
 
             $kernel->yield ('componentLogMsg', "The file $requireFile can not be found. want_getJob will be called automatically later.", 'info');
             return;
         }
     }
-    
+
     $kernel->yield ('componentGetJob', $input->{'from'});
-    $heap->{'expectedCommand'} = 'runJob';	    
+    $heap->{'expectedCommand'} = 'runJob';
 }
 
 sub componentGetJobHandler
@@ -417,10 +417,10 @@ sub componentGetJobHandler
 
     my $self = $heap->{'self'};
 
-    # return if the agent has already beed loaded with the job 
-    return if ($self->{'COMPONENT_HAS_JOB'} != 0 or $self->{'COMPONENT_WAITING_JOB'} != 0);	
-    
-    $self->{'COMPONENT_WAITING_JOB'} = 1;	
+    # return if the agent has already beed loaded with the job
+    return if ($self->{'COMPONENT_HAS_JOB'} != 0 or $self->{'COMPONENT_WAITING_JOB'} != 0);
+
+    $self->{'COMPONENT_WAITING_JOB'} = 1;
     $self->{'wantJobTrial'} = 1;
     $self->{'wantOutputDirTrial'} = 1;
 
@@ -431,9 +431,9 @@ sub componentGetJobHandler
     my $jdl = new Copilot::Classad::Host();
 
     my $hostname = `hostname -f`;
-    chomp $hostname;     
-   
-    my $jobRequest = {  
+    chomp $hostname;
+
+    my $jobRequest = {
                         'to'   => $jobManager,
                         'info' =>
                                   {
@@ -441,12 +441,12 @@ sub componentGetJobHandler
                                     'jdl'       => $jdl->asJDL(),
                                     'agentHost' => $hostname, # needed to open access on chir server
                                   },
-                     };  
-                    
+                     };
+
     $kernel->yield ('componentLogMsg', 'Asking '. $jobManager .' for a job');
     $kernel->yield ('componentLogMsg', 'Will wait for runJob for a minute.', 'debug');
     $kernel->post ($container, $sendHandler, $jobRequest);
-    
+
     # We wait for 2 minutes then clear the waiting flag
     $kernel->delay('componentStopWaitingJob', 60);
 }
@@ -466,12 +466,12 @@ sub componentStopWaitingJobHandler
     else
     {
         $kernel->yield ('componentLogMsg', 'Purging previously scheduled getJob request', 'debug');
-    } 
+    }
 }
 
 #
-# This function prepares job data on the heap and passes control to the dispatcher 
-# which manges the job flow (fetches input files, executes the job command, sends files back 
+# This function prepares job data on the heap and passes control to the dispatcher
+# which manges the job flow (fetches input files, executes the job command, sends files back
 # etc).
 
 sub componentStartJobHandler
@@ -479,7 +479,7 @@ sub componentStartJobHandler
     my ( $kernel, $heap, $input) = @_[ KERNEL, HEAP, ARG0];
 
     my $job = $input->{'job'};
-    
+
     my $jobID = $job->{'id'};
 
     $kernel->yield ('componentLogMsg', 'Got job to run with ID '. $jobID);
@@ -490,7 +490,7 @@ sub componentStartJobHandler
     $heap->{$jobID}->{'jmJobData'} = $input->{'jmJobData'} || undef;
 
     $heap->{$jobID}->{'state'} = 'prepare';
-    $heap->{'currentJobID'} = $jobID; 
+    $heap->{'currentJobID'} = $jobID;
 
     $kernel->yield ('componentDispatchJob');
 }
@@ -503,8 +503,8 @@ sub componentDispatchJobHandler
 
     my $jobID = $heap->{'currentJobID'};
     my $prevState = $heap->{$jobID}->{'state'};
-   
-    if ($prevState eq 'prepare')     
+
+    if ($prevState eq 'prepare')
     {
         # job data is on the heap we start fetching files
         $heap->{$jobID}->{'state'} = 'getInput';
@@ -512,35 +512,35 @@ sub componentDispatchJobHandler
     }
     elsif ($prevState eq 'getInput') # files are fetched we prepare job wrapper script
     {
-        # create the wrapper 
-        $heap->{$jobID}->{'state'} = 'createWrapper';    
-        $kernel->yield ('componentCreateJobWrapper');        
+        # create the wrapper
+        $heap->{$jobID}->{'state'} = 'createWrapper';
+        $kernel->yield ('componentCreateJobWrapper');
     }
     elsif ($prevState eq 'createWrapper') # files are fetched, wrapper is ready we start command execution
     {
         # start the command execution
-        $heap->{$jobID}->{'state'} = 'execute';    
-        $kernel->yield ('componentExecuteJobCommand');        
+        $heap->{$jobID}->{'state'} = 'execute';
+        $kernel->yield ('componentExecuteJobCommand');
     }
-    elsif ($prevState eq 'execute') # 
+    elsif ($prevState eq 'execute') #
     {
-        # done execution, now we have to validateupload files 
+        # done execution, now we have to validateupload files
         $heap->{$jobID}->{'state'} = 'validate';
-        $kernel->yield ('componentValidateJob');              
+        $kernel->yield ('componentValidateJob');
     }
-    elsif ($prevState eq 'validate') # 
+    elsif ($prevState eq 'validate') #
     {
-        # done validation, now we have to get the directory to upload files 
+        # done validation, now we have to get the directory to upload files
         $heap->{$jobID}->{'state'} = 'getOutputDir';
-        $kernel->yield ('componentWantGetJobOutputDir');              
+        $kernel->yield ('componentWantGetJobOutputDir');
     }
-    elsif ($prevState eq 'getOutputDir') 
+    elsif ($prevState eq 'getOutputDir')
     {
-        # done getting the driectory now we have to upload files
+        # done getting the directory now we have to upload files
         $heap->{$jobID}->{'state'} = 'putOutput';
-        $kernel->yield ('componentPutJobOutputFiles');                     
+        $kernel->yield ('componentPutJobOutputFiles');
     }
-    elsif ($prevState eq 'putOutput') 
+    elsif ($prevState eq 'putOutput')
     {
         $heap->{$jobID}->{'state'} = 'ready';
         my $hostname = `hostname -f`;
@@ -559,9 +559,15 @@ sub componentDispatchJobHandler
 
         if ( $heap->{$jobID}->{'jmJobData'} )
         {
-            $jobData->{'jmJobData'} = $heap->{$jobID}->{'jmJobData'};
+            my $jmJobData = Copilot::Util::stringToHash($heap->{$jobID}->{'jmJobData'});
+            $jmJobData->{'wallTime'} = $heap->{$jobID}->{'wallTime'};
+            $jobData->{'jmJobData'} = Copilot::Util::hashToString($jmJobData);
         }
-                 
+        else
+        {
+            $jobData->{'jmJobData'} = Copilot::Util::hashToString({'wallTime' => $heap->{$jobID}->{'wallTime'}});
+        }
+
         $kernel->yield ('componentJobDone', $jobData );
    }
    else {}
@@ -576,20 +582,20 @@ sub componentJobDoneHandler
     my $self = $heap->{'self'};
 
     my $container = $self->{'CONTAINER_ALIAS'};
-    
+
     my $sendHandler = $self->{'SEND_HANDLER'};
-    
+
     my $jobID = $heap->{'currentJobID'};
 
     my $toSend = $jobData;
     my $to =  $heap->{$jobID}->{'StorageManagerAddress'};
 
-    $toSend->{'command'} = 'jobDone';   
+    $toSend->{'command'} = 'jobDone';
 
     my $done = {
                 'to' => $to,
                 'info'  => $toSend,
-               };    
+               };
 
     $kernel->yield ('componentLogMsg', "************************************************************");
     $kernel->yield ('componentLogMsg', "Reporting to jobmanager ($to) that the job (ID: $jobID) has been completed");
@@ -598,14 +604,14 @@ sub componentJobDoneHandler
 
     $heap->{$jobID}->{'state'} = 'done';
 
-    # We schedule job request again 
+    # We schedule job request again
     $self->{'COMPONENT_HAS_JOB'} = 0;
-    $self->{'COMPONENT_WAITING_JOB'} = 0;	
-    $self->{'COMPONENT_HAS_OUTPUT_DIR'} = 0;	
+    $self->{'COMPONENT_WAITING_JOB'} = 0;
+    $self->{'COMPONENT_HAS_OUTPUT_DIR'} = 0;
     $self->{'COMPONENT_WAITING_OUTPUT_DIR'} = 0;
 
     $kernel->yield ('componentLogMsg', "Scheduling new job request");
-    $kernel->yield ('componentWantGetJob');  
+    $kernel->yield ('componentWantGetJob');
 }
 
 #
@@ -616,10 +622,10 @@ sub componentPutJobOutputFilesHandler
 
     my $jobID = $heap->{'currentJobID'};
     my $job = $heap->{$jobID}->{'job'};
- 
+
     my $putMethod;
     my $methodParam;
- 
+
     if ( defined ($job->{'outputChirpUrl'} ))
     {
         $putMethod = 'chirpPut';
@@ -635,14 +641,14 @@ sub componentPutJobOutputFilesHandler
     # get all files in workdir and put into hash
     my $workdir = $heap->{$jobID}->{'workdir'};
 
-    # archive the contents of job output directory 
+    # archive the contents of job output directory
     $kernel->yield ('componentLogMsg', "Compressing job directory $workdir", 'debug');
-    `tar --directory $workdir -cvzf $workdir/$jobID.tgz --exclude $jobID.tgz .`;    
+    `tar --directory $workdir -cvzf $workdir/$jobID.tgz --exclude $jobID.tgz .`;
 
 
     $kernel->yield ('componentLogMsg', 'Starting uploading output for job (ID: '. $jobID . ')');
     $kernel->yield ($putMethod, $methodParam, "$workdir/$jobID.tgz", "$jobID/$jobID.tgz");
-    
+
     $kernel->yield ('componentDispatchJob'); # this is to signal that file uploading is done
 }
 
@@ -654,8 +660,8 @@ sub chirpPutHandler
 
 #    my $copyFileCmd = "parrot -a hostname cp $localFile /chirp/$chirpServer/$remoteFile";
     my $copyFileCmd = "chirp_put -a address $localFile  $chirpServer $remoteFile";
-    my $returnCode = system ("$copyFileCmd && wait");  
-    
+    my $returnCode = system ("$copyFileCmd && wait");
+
     $returnCode = $returnCode >> 8;
 
     if ($returnCode != 0)
@@ -698,7 +704,7 @@ sub componentWantGetJobOutputDirHandler
     my $container = $self->{'CONTAINER_ALIAS'};
     my $sendHandler = $self->{'SEND_HANDLER'};
 
-    my $to = $self->{'JOB_MANAGER_ADDRESS'};     
+    my $to = $self->{'JOB_MANAGER_ADDRESS'};
 
     my $toSend = {};
     $toSend->{'command'} = 'want_getJobOutputDir';
@@ -713,7 +719,7 @@ sub componentWantGetJobOutputDirHandler
     chomp $hostname;
     $toSend->{'agentHost'} = $hostname;
     $toSend->{'agentIP'} = 'todo';
-    
+
     my $outputDirRequest = {
                              'to' => $to,
                              'info' => $toSend,
@@ -725,22 +731,22 @@ sub componentWantGetJobOutputDirHandler
 }
 
 #
-# Requests the output directory for the job 
+# Requests the output directory for the job
 sub componentGetJobOutputDirHandler
 {
     my ($kernel, $heap, $from) = @_[ KERNEL, HEAP, ARG0 ];
 
     my $self = $heap->{'self'};
-    
+
     my $container = $self->{'CONTAINER_ALIAS'};
     my $sendHandler = $self->{'SEND_HANDLER'};
 
     $self->{'COMPONENT_WAITING_OUTPUT_DIR'} = 1;
 
     my $jobID = $heap->{'currentJobID'};
-    
+
     #my $to = $heap->{$jobID}->{'JobManagerAddress'};
-    #my $to = $self->{'JOB_MANAGER_ADDRESS'};     
+    #my $to = $self->{'JOB_MANAGER_ADDRESS'};
     my $to = $from;
 
     my $toSend = {};
@@ -752,14 +758,14 @@ sub componentGetJobOutputDirHandler
     }
 
     my $hostname = `hostname -f`;
-    chomp $hostname;    
+    chomp $hostname;
     $toSend->{'agentHost'} = $hostname; # Necessary to open access on the chirp server
-    
+
     my $outputDirRequest = {
                                 'to' => $to,
                                 'info'=> $toSend,
                            };
-    
+
     $kernel->yield ('componentLogMsg', "Asking jobmanager ($to) for an output directory for job (ID: $jobID)");
     $kernel->delay ('componentStopWaitingOutputDir', 10);
     $kernel->post ($container, $sendHandler, $outputDirRequest);
@@ -778,7 +784,7 @@ sub componentStopWaitingOutputDirHandler
     else
     {
         $kernel->yield ('componentLogMsg', 'Purging previously scheduled getJobOutputDir request', 'debug');
-    } 
+    }
 }
 
 #
@@ -788,7 +794,7 @@ sub storeOutputDirHandler
     my ($kernel, $heap, $input) = @_[ KERNEL, HEAP, ARG0 ];
 
     my $self = $heap->{'self'};
-    
+
     my $container = $self->{'CONTAINER_ALIAS'};
     my $logHandler = $self->{'LOG_HANDLER'};
 
@@ -803,8 +809,8 @@ sub storeOutputDirHandler
 
     $job->{'outputChirpUrl'} = $input->{'outputChirpUrl'};
     $job->{'outputDir'} = $input->{'outputDir'};
-    
-    $kernel->post ($container, $logHandler, 'Stored job output directory data for job (ID: '. $jobID. ' )');       
+
+    $kernel->post ($container, $logHandler, 'Stored job output directory data for job (ID: '. $jobID. ' )');
     $self->{'COMPONENT_HAS_OUTPUT_DIR'} = 1;
     $kernel->yield ('componentDispatchJob'); # this is to signal that output dir is ready
 }
@@ -814,12 +820,12 @@ sub componentGetJobInputFilesHandler
 {
 
     my ( $kernel, $heap ) = @_[ KERNEL, HEAP ];
-   
+
     my $self = $heap->{'self'};
 
     my $jobID = $heap->{'currentJobID'};
     my $job = $heap->{$jobID}->{'job'};
- 
+
     $kernel->yield ('componentLogMsg', 'Starting fetching input files for job (ID: '. $jobID . ')');
 
     # Fetch the job input files
@@ -843,11 +849,11 @@ sub componentGetJobInputFilesHandler
     }
 
     # create working directory of the job
-    $kernel->yield ('createJobWorkDir', $jobInputDirLocal);    
+    $kernel->yield ('createJobWorkDir', $jobInputDirLocal);
 
     # fetch input files
     my @files = split ('###', $job->{'inputFiles'});
-      
+
     foreach my $file (@files)
     {
         $file eq '' and next;
@@ -871,7 +877,7 @@ sub createJobWorkDirHandler
 
     my $returnCode = system ("mkdir -p $dir && wait");
 
-    ($returnCode>>8) or return; #everything went well 
+    ($returnCode>>8) or return; #everything went well
 
     $kernel->yield ('componentError');
 }
@@ -885,16 +891,16 @@ sub chirpGetHandler
 
     # my $copyFileCmd = "parrot -a hostname cp /chirp/$chirpServer/$remoteFile $localFile";
     my $copyFileCmd = "chirp_get -a address $chirpServer $remoteFile $localFile";
-    
-    my $returnCode = system ("$copyFileCmd && wait");  
+
+    my $returnCode = system ("$copyFileCmd && wait");
 
     $returnCode = $returnCode >> 8;
 
     $returnCode or return; # everything went well
 
-    
-    # otherwise    
-    $kernel->yield ('componentError', "Failed to download input file ($copyFileCmd). Exit code $returnCode");       
+
+    # otherwise
+    $kernel->yield ('componentError', "Failed to download input file ($copyFileCmd). Exit code $returnCode");
 }
 
 #
@@ -907,12 +913,12 @@ sub componentCreateJobWrapperHandler
 
     $heap->{$jobID}->{'job'}->{'wrapper'} = $heap->{$jobID}->{'workdir'}."/_wrapper_.sh";
     my $job = $heap->{$jobID}->{'job'};
-    
+
     my $wFile = $job->{'wrapper'};
-    
-    # create the file 
+
+    # create the file
     open (WF, "> $wFile");
-    
+
     print WF "#!/bin/sh\n";
 
     #prepare packages
@@ -921,12 +927,12 @@ sub componentCreateJobWrapperHandler
     foreach my $package (@pkg)
     {
         print WF "# Environment variables for $package\n";
-        
+
         # package names have the following format: VO_NAME@PKG_NAME::VERSION (e.g. VO_ALICE@AliRoot::v4-16-Rev-01)
         # alienv expects PKG_NAME/VERSION so we need to convert
-                       
+
         # remove VO_NAME@
-        $package =~ s/^(.*\@)//;  
+        $package =~ s/^(.*\@)//;
 
         # substitute :: with /
         $package =~ s/(::)/\//;
@@ -934,22 +940,23 @@ sub componentCreateJobWrapperHandler
         # print package related env vars to the wrapper file
         my $vars = `alienv print $package`;
         print WF "$vars\n\n";
-        
+
     }
 
     # prepare environement variables
     print WF "\n# Environment variables needed by the job\n";
-    print WF $job->{'environment'}. "\n"; 
-    
+    print WF $job->{'environment'}. "\n";
+
     # prepare command
     print WF "\n# Job command execution\n";
     print WF "cd ".$heap->{$jobID}->{'workdir'}."\n";
     print WF "chmod a+x ".  $heap->{$jobID}->{'job'}->{'command'}."\n";
 
-    # execute the command 
-    print WF "./".$heap->{$jobID}->{'job'}->{'command'}." ". $heap->{$jobID}->{'job'}->{'arguments'}."\n";    
+    # execute the command
+    print WF "/usr/bin/time -f \%U -o _walltime_ ./".$heap->{$jobID}->{'job'}->{'command'}." ". $heap->{$jobID}->{'job'}->{'arguments'}."\n";
+    #print WF "exit $?";
 
-    close WF;   
+    close WF;
 
     $kernel->yield ('componentLogMsg', 'Create wrapper script for job (ID: '. $jobID . ')');
     $kernel->yield ('componentDispatchJob'); # this is to signal that file fetching is done
@@ -964,28 +971,28 @@ sub componentExecuteJobCommandHandler
 
     my $jobID = $heap->{'currentJobID'};
     my $job = $heap->{$jobID}->{'job'};
-   
+
     my $wrapper = $job->{'wrapper'};
-    my $workDir = $heap->{$jobID}->{'workdir'};   
-    
+    my $workDir = $heap->{$jobID}->{'workdir'};
+
     my $cmd = "cd $workDir && chmod a+x $wrapper && . $wrapper";
 
     $kernel->sig(CHLD => 'jobWheelFinished');
- 
+
     # create stdout, stderr and resources files in working directory of the job
     # beacuse AliEn expects them to be there
     my $wd =  $heap->{$jobID}->{'workdir'};
-    system ("touch $wd/stdout $wd/stderr $wd/resources"); 
+    system ("touch $wd/stdout $wd/stderr $wd/resources");
 
-    
+
     $heap->{$jobID}->{'wheel'} = POE::Wheel::Run->new(
-                                                        Program => $cmd,    
+                                                        Program => $cmd,
                                                         StdoutEvent => 'jobWheelStdout',
                                                         StderrEvent => 'jobWheelStderr',
                                                         StdioFilter  => POE::Filter::Line->new(),
                                                         StderrFilter => POE::Filter::Line->new(),
                                                         ErrorEvent => 'jobWheelError',
-                                                    );  
+                                                    );
     my $childPID = $heap->{$jobID}->{'wheel'}->PID;
     $heap->{$jobID}->{'childPID'} = $childPID;
 
@@ -996,9 +1003,9 @@ sub jobWheelErrorHandler
 {
     my ( $hash, $operation, $code, $msg, $handle ) = @_[ HEAP, ARG0, ARG1, ARG2, ARG4 ];
 
-    if ( ($operation eq 'read') and ($code == 0) and ($handle eq 'STDERR' or $handle  eq 'STDOUT') and ($msg eq'') ) 
+    if ( ($operation eq 'read') and ($code == 0) and ($handle eq 'STDERR' or $handle  eq 'STDOUT') and ($msg eq'') )
     { return; } # this situation is normal
-    else 
+    else
     {
         print "\n\nFailed to $operation: $msg (Error code: $code). Handle: $handle\n\n";
         #yield->error();
@@ -1010,15 +1017,15 @@ sub jobWheelErrorHandler
 sub jobWheelStderrHandler
 {
     my ($heap, $txt) = @_[HEAP, ARG0];
-    my $jobID = $heap->{'currentJobID'}; 
+    my $jobID = $heap->{'currentJobID'};
     my $wd = $heap->{$jobID}->{'workdir'};
 
     my $fh = $heap->{$jobID}->{'STDERR_HANDLE'};
     unless (defined($fh))
-    { 
+    {
         open $fh, "> $wd/stderr";
         $heap->{$jobID}->{'STDERR_HANDLE'} = $fh;
-    }    
+    }
 
     print $fh "$txt\n";
 }
@@ -1029,15 +1036,15 @@ sub jobWheelStdoutHandler
 {
     my ($heap, $txt) = @_[HEAP, ARG0];
 
-    my $jobID = $heap->{'currentJobID'}; 
+    my $jobID = $heap->{'currentJobID'};
     my $wd = $heap->{$jobID}->{'workdir'};
 
     my $fh = $heap->{$jobID}->{'STDOUT_HANDLE'};
-    
+
 
     unless ( defined ($fh))
     {
-        open $fh, "> $wd/stdout"; 
+        open $fh, "> $wd/stdout";
         $heap->{$jobID}->{'STDOUT_HANDLE'} = $fh;
     }
 
@@ -1052,8 +1059,8 @@ sub jobWheelFinishedHandler
 
     my $jobID = $heap->{'currentJobID'};
 
-    # Child process (PID: $childPid) for job (Job ID: $jobID) finished with: $retVal 
-    $heap->{$jobID}->{'exitCode'}  = $exitCode; 
+    # Child process (PID: $childPid) for job (Job ID: $jobID) finished with: $retVal
+    $heap->{$jobID}->{'exitCode'}  = $exitCode;
 
     # close STDOUT and STDERR handles;
     my $fh = $heap->{$jobID}->{'STDOUT_HANDLE'};
@@ -1062,12 +1069,18 @@ sub jobWheelFinishedHandler
     $fh = $heap->{$jobID}->{'STDERR_HANDLE'};
     $fh and close $fh;
 
-    $kernel->yield('componentLogMsg', "Execution of child process (PID: $childPID) finished with \'$exitCode\'"); 
+    my $wallfile = $heap->{$jobID}->{'workdir'} . "/_walltime_";
+    my $walltime = `tail -n 1 $wallfile`;
+    chomp $walltime;
+    `rm $wallfile`;
+    $heap->{$jobID}->{'wallTime'} = $walltime;
+
+    $kernel->yield('componentLogMsg', "Execution of child process (PID: $childPID) finished with \'$exitCode\' in $walltime seconds");
 
     # destroy the wheel
     my $j =  $heap->{$jobID};
-    delete $j->{'wheel'};   
-    
+    delete $j->{'wheel'};
+
     $kernel->yield ('componentDispatchJob'); # this is to signal that command execution is done
 }
 
@@ -1079,41 +1092,41 @@ sub componentValidateJobHandler
 
     my $jobID = $heap->{'currentJobID'};
     my $job = $heap->{$jobID}->{'job'};
-   
+
     if (! $heap->{$jobID}->{'job'}->{'validationScript'} )
-    {     
-        
+    {
+
         $kernel->yield ('componentLogMsg', "The job (Job ID: $jobID) does not require validation");
         $kernel->yield ('componentDispatchJob'); # this is to signal that the job validation is done (not needed)
         return;
     }
-   
+
     my $vs = $heap->{$jobID}->{'job'}->{'validationScript'};
-    
+
     my $cmd = "cd ".$heap->{$jobID}->{'workdir'}." && chmod a+x $vs && ./$vs";
 
     $kernel->sig(CHLD => 'validateWheelFinished');
- 
+
     # create stdout, stderr and resources files in working directory of the job
     # beacuse AliEn expects them to be there
     my $wd =  $heap->{$jobID}->{'workdir'};
-    system ("touch $wd/validate_stdout $wd/validate_stderr "); 
+    system ("touch $wd/validate_stdout $wd/validate_stderr ");
 
-    
+
     $heap->{$jobID}->{'validateWheel'} = POE::Wheel::Run->new(
-                                                              Program => $cmd,    
+                                                              Program => $cmd,
                                                               StdoutEvent => 'validateWheelStdout',
                                                               StderrEvent => 'validateWheelStderr',
                                                               StdioFilter  => POE::Filter::Line->new(),
                                                               StderrFilter => POE::Filter::Line->new(),
                                                               ErrorEvent => 'validateWheelError',
-                                                            );  
+                                                            );
     my $childPID = $heap->{$jobID}->{'validateWheel'}->PID;
     $heap->{$jobID}->{'validatePID'} = $childPID;
 
     $kernel->yield ('componentLogMsg', "Starting child process (PID: $childPID) to validate the job (Job ID: $jobID)");
 
-    
+
 }
 
 #
@@ -1122,9 +1135,9 @@ sub validateWheelErrorHandler
 {
     my ( $hash, $operation, $code, $msg, $handle ) = @_[ HEAP, ARG0, ARG1, ARG2, ARG4 ];
 
-    if ( ($operation eq 'read') and ($code == 0) and ($handle eq 'STDERR' or $handle  eq 'STDOUT') and ($msg eq'') ) 
+    if ( ($operation eq 'read') and ($code == 0) and ($handle eq 'STDERR' or $handle  eq 'STDOUT') and ($msg eq'') )
     { return; } # this situation is normal
-    else 
+    else
     {
         print "\n\nFailed to $operation: $msg (Error code: $code). Handle: $handle\n\n";
         #yield->error();
@@ -1137,15 +1150,15 @@ sub validateWheelErrorHandler
 sub validateWheelStderrHandler
 {
     my ($heap, $txt) = @_[HEAP, ARG0];
-    my $jobID = $heap->{'currentJobID'}; 
+    my $jobID = $heap->{'currentJobID'};
     my $wd = $heap->{$jobID}->{'workdir'};
 
     my $fh = $heap->{$jobID}->{'VALIDATE_STDERR_HANDLE'};
     unless (defined($fh))
-    { 
+    {
         open $fh, "> $wd/validate_stderr";
         $heap->{$jobID}->{'VALIDATE_STDERR_HANDLE'} = $fh;
-    }    
+    }
 
     print $fh "$txt\n";
 }
@@ -1156,17 +1169,17 @@ sub validateWheelStdoutHandler
 {
     my ($heap, $txt) = @_[HEAP, ARG0];
 
-    my $jobID = $heap->{'currentJobID'}; 
+    my $jobID = $heap->{'currentJobID'};
     my $wd = $heap->{$jobID}->{'workdir'};
 
     my $fh = $heap->{$jobID}->{'VALIDATE_STDOUT_HANDLE'};
-    
+
 
     unless ( defined ($fh))
     {
-        open $fh, "> $wd/validate_stdout"; 
+        open $fh, "> $wd/validate_stdout";
         $heap->{$jobID}->{'VALIDATE_STDOUT_HANDLE'} = $fh;
-    }    
+    }
 
     print $fh "$txt\n";
 }
@@ -1179,8 +1192,8 @@ sub validateWheelFinishedHandler
 
     my $jobID = $heap->{'currentJobID'};
 
-    # Child process (PID: $childPid) for job (Job ID: $jobID) finished with: $retVal 
-    $heap->{$jobID}->{'validateExitCode'}  = $exitCode; 
+    # Child process (PID: $childPid) for job (Job ID: $jobID) finished with: $retVal
+    $heap->{$jobID}->{'validateExitCode'}  = $exitCode;
 
     # close STDOUT and STDERR handles;
     my $fh = $heap->{$jobID}->{'VALIDATE_STDOUT_HANDLE'};
@@ -1189,12 +1202,12 @@ sub validateWheelFinishedHandler
     $fh = $heap->{$jobID}->{'VALIDATE_STDERR_HANDLE'};
     $fh and close $fh;
 
-    $kernel->yield('componentLogMsg', "Execution of child process (PID: $childPID) finished with \'$exitCode\'"); 
+    $kernel->yield('componentLogMsg', "Execution of child process (PID: $childPID) finished with \'$exitCode\'");
 
     # destroy the wheel
     my $j =  $heap->{$jobID};
-    delete $j->{'validateWheel'};   
-    
+    delete $j->{'validateWheel'};
+
     $kernel->yield ('componentDispatchJob'); # this is to signal that the job validation is done
 
 }
@@ -1216,7 +1229,7 @@ sub componentLogMsgHandler
     my ( $kernel, $heap, $msg, $logLevel) = @_[ KERNEL, HEAP, ARG0, ARG1];
 
     $logLevel or ($logLevel = 'info');
-    
+
     my $self = $heap->{'self'};
 
     my $logHandler = $self->{'LOG_HANDLER'};
@@ -1239,19 +1252,19 @@ sub componentRedirectHandler
 
     my $data = $input->{'info'};
     my $to = $input->{'referral'};
-    
-    
+
+
     my $command = $data->{'command'};
     my $jobID = $data->{'jobID'};
-    
-    my $forwardRequest = {  
+
+    my $forwardRequest = {
                             'to'   => $to,
                             'info' => $data,
-                         };  
-                    
+                         };
+
     $kernel->yield ('componentLogMsg', 'Bouncing '. $command .' to '. $to . 'for job (ID: '. $jobID.' )');
-    
-    $kernel->post ($container, $sendHandler, $forwardRequest); 
+
+    $kernel->post ($container, $sendHandler, $forwardRequest);
 }
- 
+
 "M";

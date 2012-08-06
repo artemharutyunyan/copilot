@@ -1,3 +1,4 @@
+
 package Copilot::Util;
 
 use strict;
@@ -252,6 +253,27 @@ sub trim
     my $string = shift;
     $string =~ s/^\s+|\s+$//g;
     return $string;
+}
+
+=item parseAgentJID
+
+Extract data from Agent's JID
+
+=cut
+
+sub parseAgentJID
+{
+    my ($user, $host) = split('@', shift);
+    my ($component, $id, $cpus, $rev, $uuid, $ukn) = split('_', $user);
+    my $data = {
+        'component' => $component,
+        'id' => $id,
+        'cpus' => $cpus,
+        'rev' => $rev,
+        'uuid' => $uuid,
+        'ukn' => $ukn
+    };
+    return $data;
 }
 
 =item getCPULoad
