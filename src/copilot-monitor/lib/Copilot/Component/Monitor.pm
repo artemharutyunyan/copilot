@@ -8,6 +8,8 @@ This class implements the Co-Pilot monitoring functionality, collecting event da
 
   CarbonServer - Address of the server on which Carbon (Graphite) is running.
   CarbonPort   - Port on which the Carbon is accessible. (default: 2023).
+  MongoDBServer - Address of the server on which MongoDB is running.
+  MongoDBPort   - Port to which MongoDB is bound. (default: 27017)
 
   Example instantiation:
   my $mon = new Copilot::Container::XMPP ({
@@ -18,8 +20,10 @@ This class implements the Co-Pilot monitoring functionality, collecting event da
                                             JabberDomain    => $jabberDomain,
                                             JabberServer    => $jabberServer,
                                             ComponentOptions => {
-                                                                  CarbonServer => $carbonServer,
-                                                                  CarbonPort   => $carbonPort,
+                                                                  CarbonServer  => $carbonServer,
+                                                                  CarbonPort    => $carbonPort,
+                                                                  MongoDBServer => $mongoDBServer,
+                                                                  MongoDBPort   => $mongoDBPort
                                                                 },
                                          });
 =cut
@@ -41,6 +45,11 @@ use Data::Dumper;
 use Time::HiRes qw(time);
 use IO::Socket;
 use List::Util qw(min max sum reduce);
+
+use boolean;
+use JSON;
+use DateTime;
+use MongoDB;
 
 @ISA = ("Copilot::Component");
 
@@ -66,6 +75,8 @@ sub _init
                                                 componentStoreEventDuration         => \&componentStoreEventDuration,
                                                 componentStoreValue                 => \&componentStoreValue,
                                                 componentUpdateDB                   => \&componentUpdateDB,
+                                                componentStoreEventDetails => \&componentStoreEventDetails,
+                                                componentUpdateEventDetails => \&componentUpdateEventDetails,
                                              },
                             args =>          [ $self ],
                          );
@@ -97,7 +108,12 @@ sub _loadConfig
     ($self->{'CARBON_SERVER'} = $options->{'COMPONENT_OPTIONS'}->{'CarbonServer'})
         or die "CARBON_SERVER is not specified.\n";
 
-    ($self->{'CARBON_PORT'} = $options->{'COMPONENT_OPTIONS'}->{'CarbonPort'} or '2003');
+    $self->{'CARBON_PORT'} = ($options->{'COMPONENT_OPTIONS'}->{'CarbonPort'} || '2003');
+
+    ($self->{'MONGODB_SERVER'} = $options->{'COMPONENT_OPTIONS'}->{'MongoDBServer'})
+        or die "MONGODB_SERVER is not specified.\n";
+
+    $self->{'MONGODB_PORT'} = ($options->{'COMPONENT_OPTIONS'}->{'MongoDBPort'} || '27017');
 }
 
 sub mainStartHandler
@@ -121,6 +137,10 @@ sub mainStartHandler
 
     # data is flushed to the DB every 10 seconds
     $heap->{'dbUpdateAlarmID'} = $kernel->delay (componentUpdateDB => 10);
+
+    $heap->{'mongoConn'} = MongoDB::Connection->new(host => $self->{'MONGODB_SERVER'} . ":" . $self->{'MONGODB_PORT'});
+    $heap->{'mongoDB'} = $heap->{'mongoConn'}->copilot;
+    $heap->{'mongoColl'} = $heap->{'mongoDB'}->connections;
 }
 
 # Called when session is being closed
@@ -165,6 +185,14 @@ sub componentProcessInput
     elsif($command eq 'reportEventValue')
     {
       $kernel->yield('componentStoreValue', $input);
+    }
+    elsif($command eq 'storeEventDetails')
+    {
+      $kernel->yield('componentStoreEventDetails', $input);
+    }
+    elsif($command eq 'updateEventDetails')
+    {
+      $kernel->yield('componentUpdateEventDetails', $input);
     }
 }
 
@@ -314,6 +342,72 @@ sub componentUpdateDB
     push (@updates, "copilot.monitor.updates $totalUpdates $timestamp\n");
     print $carbonSocket (join ("\n", @updates));
 
-    $kernel->post ($container, $logHandler, "Sent $totalUpdates updates to Carbon.");
+    if($totalUpdates > 0)
+    {
+        $kernel->post ($container, $logHandler, "Sent $totalUpdates updates to Carbon.");
+    }
+
     $heap->{'dbUpdateAlarmID'} = $kernel->delay (componentUpdateDB => 10);
+}
+
+sub componentStoreEventDetails
+{
+    my ($kernel, $heap, $input) = @_[ KERNEL, HEAP, ARG0 ];
+    my $self = $heap->{'self'};
+    my $container   = $self->{'CONTAINER_ALIAS'};
+    my $logHandler  = $self->{'LOG_HANDLER'};
+
+    my $mongoColl = $heap->{'mongoColl'};
+    my $details   = $input->{'details'};
+
+    if(length($details) > 0)
+    {
+        my $json = JSON->new->allow_blessed->convert_blessed->filter_json_object(\&helperFilterJsonObject);
+        $details = $json->decode($details);
+        my $now = DateTime->now;
+        $details->{'created_at'} = $now;
+        $details->{'updated_at'} = $now;
+        my $id = $mongoColl->insert($details);
+
+        $id = $id->to_string;
+        $kernel->post($container, $logHandler, "Stored new event details. Document id: $id", 'debug');
+    }
+}
+
+sub componentUpdateEventDetails
+{
+    my ($kernel, $heap, $input) = @_[ KERNEL, HEAP, ARG0 ];
+    my $self = $heap->{'self'};
+    my $container   = $self->{'CONTAINER_ALIAS'};
+    my $logHandler  = $self->{'LOG_HANDLER'};
+
+    my $mongoColl = $heap->{'mongoColl'};
+    my $session = $input->{'session'};
+    my $updates = $input->{'updates'};
+
+    if (length($session) > 0 && length($updates) > 0)
+    {
+        my $query = {'agent_data.uuid' => $session, 'connected' => boolean::true};
+        my $json = JSON->new->allow_blessed->convert_blessed->filter_json_object(\&helperFilterJsonObject);
+        $updates = $json->decode($updates);
+        $mongoColl->update($query, $updates);
+        $mongoColl->update($query, {'$set' => {'updated_at' => DateTime->now}});
+
+        $kernel->post($container, $logHandler, "Updated details for event $session.", 'debug');
+    }
+}
+
+# Decodes the boolean values into a format MongoDB expects
+sub helperFilterJsonObject
+{
+    my ($obj) = @_;
+
+    for my $key (keys %$obj)
+    {
+        my $value = $obj->{$key};
+        $obj->{$key} = boolean::true if $value eq "true";
+        $obj->{$key} = boolean::false if $value eq "false";
+    }
+
+    return ();
 }

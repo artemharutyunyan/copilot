@@ -37,6 +37,9 @@ my $keyServerJID = $config->{'KM_JABBER_ADDRESS'};
 my $carbonServer = $config->{'CARBON_SERVER'} || $localhost;
 my $carbonPort   = $config->{'CARBON_PORT'}   || '2003';
 
+my $mongoDBServer  = $config->{'MONGODB_SERVER'} || undef;
+my $mongoDBPort    = $config->{'MONGODB_PORT'} || '27017';
+
 my $monitor = new Copilot::Container::XMPP ({
                                               Component         => 'Monitor',
                                               LoggerConfig      => $loggerConfig,
@@ -49,8 +52,10 @@ my $monitor = new Copilot::Container::XMPP ({
                                               JabberResend      => '1',
 
                                               ComponentOptions  => {
-                                                                      CarbonServer => $carbonServer,
-                                                                      CarbonPort   => $carbonPort,
+                                                                      CarbonServer  => $carbonServer,
+                                                                      CarbonPort    => $carbonPort,
+                                                                      MongoDBServer => $mongoDBServer,
+                                                                      MongoDBPort   => $mongoDBPort,
                                                                    },
 
 #                                              SecurityModule => 'Provider',
