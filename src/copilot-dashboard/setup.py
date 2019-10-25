@@ -25,7 +25,7 @@ setup(
   zip_safe=False,
   data_files=static.items(),
   install_requires=[
-    "Django == 1.3.1",
+    "Django == 1.11.23",
     "pymongo == 2.2",
     "httplib2 == 0.7.4"
   ]
