@@ -27,6 +27,6 @@ setup(
   install_requires=[
     "Django == 1.3.1",
     "pymongo == 2.2",
-    "httplib2 == 0.7.4"
+    "httplib2 == 0.19.0"
   ]
 )
