@@ -26,7 +26,7 @@ setup(
   data_files=static.items(),
   install_requires=[
     "Django == 1.3.1",
-    "pymongo == 2.2",
+    "pymongo == 2.5.2",
     "httplib2 == 0.7.4"
   ]
 )
